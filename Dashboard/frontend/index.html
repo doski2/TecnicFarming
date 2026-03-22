@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FS25 Telemetry Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div id="app-topnav" data-fragment="./sections/topnav.html"></div>
+  <div id="app-main" class="main">
+    <div id="app-col-left" class="col-left" data-fragment="./sections/col-left.html"></div>
+    <div id="app-col-center" class="col-center" data-fragment="./sections/col-center.html"></div>
+    <div id="app-col-right" class="col-right" data-fragment="./sections/col-right.html"></div>
+  </div>
+  <div id="app-bottom-strip" data-fragment="./sections/bottom-strip.html"></div>
+
+  <!-- Socket.io client — debe cargarse ANTES de los scripts del dashboard -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="./js/section-loader.js"></script>
+</body>
+</html>

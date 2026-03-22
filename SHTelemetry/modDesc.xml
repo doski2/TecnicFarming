@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<modDesc descVersion="92">
+    <author>wotever</author>
+	<authorContact>www.simhubdash.com</authorContact>
+    <version>1.0.0.0</version>
+    <title>
+        <en>SimHub Telemetry Interface</en>
+        <de>SimHub Telemetry Interface</de>
+    </title>
+    <description>
+        <en>SimHub Telemetry Interface</en>
+        <de>SimHub Telemetry Interface</de>
+    </description>
+    <iconFilename>simhub.dds</iconFilename>
+    <multiplayer supported="true" />
+    <extraSourceFiles>
+        <sourceFile filename="SHTelemetry.lua"/>
+        <sourceFile filename="SHTelemetry_Extensions.lua"/>
+    </extraSourceFiles>
+</modDesc>

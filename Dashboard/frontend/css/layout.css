@@ -1,0 +1,406 @@
+/* Top Navigation */
+.topnav {
+  height: 52px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 32px;
+  z-index: 100;
+  position: sticky;
+  top: 0;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  font-family: var(--orb);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--lime);
+}
+
+.nav-brand-icon {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--lime);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-sec);
+  cursor: pointer;
+  transition: color 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.nav-item:hover {
+  color: var(--lime);
+}
+
+.nav-status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clock {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-sec);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.status-dot.connected {
+  background: var(--lime);
+  box-shadow: 0 0 6px var(--lime-glow);
+}
+
+/* Main Layout */
+.main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  gap: 12px;
+  padding: 12px;
+  height: calc(100vh - 52px - 60px);
+  overflow: hidden;
+}
+
+.col-left,
+.col-center,
+.col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.col-left   { grid-column: 1; }
+.col-center { grid-column: 2; }
+.col-right  { grid-column: 3; }
+
+.col-left .card {
+  min-width: 0;
+}
+
+/* Scrollbar personalizado */
+.col-left::-webkit-scrollbar,
+.col-center::-webkit-scrollbar,
+.col-right::-webkit-scrollbar {
+  width: 6px;
+}
+
+.col-left::-webkit-scrollbar-track,
+.col-center::-webkit-scrollbar-track,
+.col-right::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.col-left::-webkit-scrollbar-thumb,
+.col-center::-webkit-scrollbar-thumb,
+.col-right::-webkit-scrollbar-thumb {
+  background: var(--glass-hi);
+  border-radius: 3px;
+}
+
+/* Card del dinamómetro: crece para llenar el espacio libre de col-center */
+.panel-surface:has(#dyno-svg) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: visible; /* permite que el contenido interior declare su flex-grow */
+}
+/* .card interno del dynamometer también debe ser flex-column para propagar altura */
+.panel-surface:has(#dyno-svg).card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* mantiene el clip de bordes pero propaga altura a los hijos flex */
+  min-height: 0;    /* necesario para que flex:1 funcione dentro de un flex child */
+}
+
+/* col-center solo tiene tachometer + dynamometer — no necesita scroll;
+   overflow:hidden es necesario para que flex:1 del dynamometer funcione
+   (con overflow:auto el navegador crece el contenido sin límite) */
+.col-center {
+  overflow: hidden;
+}
+
+/* Bottom Strip */
+.bottom-strip {
+  height: 60px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 20px;
+  font-size: 11px;
+}
+
+.strip-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-sec);
+}
+
+.strip-item-value {
+  color: var(--lime);
+  font-weight: 600;
+}
+
+@media (max-width: 1920px) and (max-height: 1080px) {
+  .topnav {
+    height: 44px;
+    padding: 0 16px;
+    gap: 18px;
+  }
+
+  .nav-title {
+    font-size: 12px;
+  }
+
+  .nav-subtitle,
+  .nav-pill,
+  .clock {
+    font-size: 9px;
+  }
+
+  .main {
+    height: calc(100vh - 44px - 44px);
+    padding: 8px;
+    gap: 8px;
+    grid-template-columns: 236px 1fr 270px;
+  }
+
+  .bottom-strip {
+    height: 44px;
+    padding: 0 14px;
+    gap: 14px;
+    font-size: 9px;
+  }
+
+  .strip-item {
+    gap: 4px;
+  }
+
+  .col-left,
+  .col-center,
+  .col-right {
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .card {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .card-title {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
+  .metric {
+    padding: 4px 0;
+    font-size: 11px;
+  }
+
+  .metric-value {
+    font-size: 11px;
+  }
+
+  .gauge-container {
+    height: 180px;
+  }
+
+  .gauge-rpm {
+    font-size: 28px;
+  }
+
+  .gauge-speed {
+    font-size: 13px;
+  }
+
+  .gauge-status {
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    gap: 4px;
+  }
+
+  .gauge-status-item {
+    padding: 4px 3px;
+  }
+
+  .zones-display {
+    margin-top: 6px;
+    gap: 8px;
+  }
+
+  .terrain-angle .angle-grid {
+    gap: 6px;
+  }
+
+  .angle-item {
+    padding: 6px;
+  }
+
+  .angle-value {
+    font-size: 14px;
+    margin: 2px 0;
+  }
+
+  .telemetry-grid {
+    gap: 6px;
+  }
+
+  .telemetry-item {
+    padding: 6px;
+  }
+
+  .telemetry-value {
+    font-size: 12px;
+  }
+
+  .chart-container {
+    height: 92px;
+    padding: 6px;
+  }
+
+  .chart-container-sm {
+    height: 76px;
+  }
+
+  .dyno-container {
+    height: 92px;
+  }
+
+  .chart-block {
+    gap: 6px;
+  }
+
+  .chart-head-title {
+    font-size: 8px;
+    letter-spacing: 0.06em;
+  }
+
+  .legend {
+    gap: 6px;
+  }
+
+  .leg-item {
+    font-size: 8px;
+  }
+
+  .chart-line-rpm,
+  .chart-line-torque,
+  .chart-line-speed,
+  .chart-line-fuel,
+  .chart-line-usage,
+  .chart-line-power {
+    stroke-width: 1.6;
+  }
+
+  .chart-meta {
+    gap: 6px;
+  }
+
+  .chart-stat {
+    font-size: 7px;
+  }
+
+  .chart-stat span {
+    font-size: 9px;
+  }
+
+  .health-bar {
+    height: 12px;
+  }
+
+  .fuel-level {
+    height: 16px;
+  }
+
+  .status-row {
+    padding: 4px 0;
+  }
+
+  .status-name,
+  .telemetry-label,
+  .angle-label,
+  .gauge-status-item,
+  .gauge-rpm-label {
+    font-size: 8px;
+  }
+
+  .status-badge {
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+}
+
+@media (max-height: 900px) {
+  .chart-container {
+    height: 80px;
+  }
+
+  .chart-container-sm,
+  .dyno-container {
+    height: 68px;
+  }
+
+  .gauge-container {
+    height: 160px;
+  }
+}
+
+@media (max-width: 1600px) {
+  .main {
+    grid-template-columns: 240px minmax(0, 1.4fr) 280px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .main {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .col-left,
+  .col-center,
+  .col-right {
+    overflow: visible;
+  }
+}

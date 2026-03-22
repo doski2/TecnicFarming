@@ -1,0 +1,135 @@
+<div class="card panel-surface wheel-traction-card">
+  <div class="card-title-row">
+    <span class="card-title teal">Tracción Ruedas</span>
+    <span class="drive-type-badge" id="drive-type-badge">4WD</span>
+  </div>
+
+  <!-- Front Left -->
+  <div class="wt-wheel-row" id="wheel-cell-FL">
+    <div class="wt-pos-col">
+      <span class="wt-pos-label">FL</span>
+      <span class="wheel-contact-dot" id="wheel-contact-FL"></span>
+    </div>
+    <div class="wt-bars-col">
+      <div class="wt-bar-row">
+        <span class="wt-bar-lbl">TRQ</span>
+        <div class="wt-bar-track"><div class="wheel-torque-bar" id="wheel-bar-FL" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-torq-FL">0</span><span class="wt-unit">%</span>
+      </div>
+      <div class="wt-bar-row">
+        <span class="wt-bar-lbl">SLP</span>
+        <div class="wt-bar-track"><div class="wheel-slip-fill" id="wheel-slip-FL" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-slipval-FL">0%</span>
+      </div>
+      <div class="wt-bar-row" id="wheel-latrow-FL" style="display:none">
+        <span class="wt-bar-lbl lat-lbl">LAT</span>
+        <div class="wt-bar-track"><div class="wheel-slip-fill wheel-latslip-fill" id="wheel-latslip-FL" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-latval-FL">0%</span>
+      </div>
+    </div>
+    <div class="wt-meta-col">
+      <div class="wheel-ground-badge" id="wheel-ground-FL" style="display:none">ROAD</div>
+      <div class="wt-load-wrap">
+        <span class="wheel-load-val" id="wheel-load-FL" style="display:none"></span>
+        <span class="wheel-load-unit" id="wheel-loadunit-FL" style="display:none">kN</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Front Right -->
+  <div class="wt-wheel-row" id="wheel-cell-FR">
+    <div class="wt-pos-col">
+      <span class="wt-pos-label">FR</span>
+      <span class="wheel-contact-dot" id="wheel-contact-FR"></span>
+    </div>
+    <div class="wt-bars-col">
+      <div class="wt-bar-row">
+        <span class="wt-bar-lbl">TRQ</span>
+        <div class="wt-bar-track"><div class="wheel-torque-bar" id="wheel-bar-FR" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-torq-FR">0</span><span class="wt-unit">%</span>
+      </div>
+      <div class="wt-bar-row">
+        <span class="wt-bar-lbl">SLP</span>
+        <div class="wt-bar-track"><div class="wheel-slip-fill" id="wheel-slip-FR" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-slipval-FR">0%</span>
+      </div>
+      <div class="wt-bar-row" id="wheel-latrow-FR" style="display:none">
+        <span class="wt-bar-lbl lat-lbl">LAT</span>
+        <div class="wt-bar-track"><div class="wheel-slip-fill wheel-latslip-fill" id="wheel-latslip-FR" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-latval-FR">0%</span>
+      </div>
+    </div>
+    <div class="wt-meta-col">
+      <div class="wheel-ground-badge" id="wheel-ground-FR" style="display:none">ROAD</div>
+      <div class="wt-load-wrap">
+        <span class="wheel-load-val" id="wheel-load-FR" style="display:none"></span>
+        <span class="wheel-load-unit" id="wheel-loadunit-FR" style="display:none">kN</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rear Left -->
+  <div class="wt-wheel-row" id="wheel-cell-RL">
+    <div class="wt-pos-col">
+      <span class="wt-pos-label">RL</span>
+      <span class="wheel-contact-dot" id="wheel-contact-RL"></span>
+    </div>
+    <div class="wt-bars-col">
+      <div class="wt-bar-row">
+        <span class="wt-bar-lbl">TRQ</span>
+        <div class="wt-bar-track"><div class="wheel-torque-bar" id="wheel-bar-RL" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-torq-RL">0</span><span class="wt-unit">%</span>
+      </div>
+      <div class="wt-bar-row">
+        <span class="wt-bar-lbl">SLP</span>
+        <div class="wt-bar-track"><div class="wheel-slip-fill" id="wheel-slip-RL" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-slipval-RL">0%</span>
+      </div>
+      <div class="wt-bar-row" id="wheel-latrow-RL" style="display:none">
+        <span class="wt-bar-lbl lat-lbl">LAT</span>
+        <div class="wt-bar-track"><div class="wheel-slip-fill wheel-latslip-fill" id="wheel-latslip-RL" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-latval-RL">0%</span>
+      </div>
+    </div>
+    <div class="wt-meta-col">
+      <div class="wheel-ground-badge" id="wheel-ground-RL" style="display:none">ROAD</div>
+      <div class="wt-load-wrap">
+        <span class="wheel-load-val" id="wheel-load-RL" style="display:none"></span>
+        <span class="wheel-load-unit" id="wheel-loadunit-RL" style="display:none">kN</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rear Right -->
+  <div class="wt-wheel-row" id="wheel-cell-RR">
+    <div class="wt-pos-col">
+      <span class="wt-pos-label">RR</span>
+      <span class="wheel-contact-dot" id="wheel-contact-RR"></span>
+    </div>
+    <div class="wt-bars-col">
+      <div class="wt-bar-row">
+        <span class="wt-bar-lbl">TRQ</span>
+        <div class="wt-bar-track"><div class="wheel-torque-bar" id="wheel-bar-RR" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-torq-RR">0</span><span class="wt-unit">%</span>
+      </div>
+      <div class="wt-bar-row">
+        <span class="wt-bar-lbl">SLP</span>
+        <div class="wt-bar-track"><div class="wheel-slip-fill" id="wheel-slip-RR" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-slipval-RR">0%</span>
+      </div>
+      <div class="wt-bar-row" id="wheel-latrow-RR" style="display:none">
+        <span class="wt-bar-lbl lat-lbl">LAT</span>
+        <div class="wt-bar-track"><div class="wheel-slip-fill wheel-latslip-fill" id="wheel-latslip-RR" style="width:0%"></div></div>
+        <span class="wt-bar-val" id="wheel-latval-RR">0%</span>
+      </div>
+    </div>
+    <div class="wt-meta-col">
+      <div class="wheel-ground-badge" id="wheel-ground-RR" style="display:none">ROAD</div>
+      <div class="wt-load-wrap">
+        <span class="wheel-load-val" id="wheel-load-RR" style="display:none"></span>
+        <span class="wheel-load-unit" id="wheel-loadunit-RR" style="display:none">kN</span>
+      </div>
+    </div>
+  </div>
+</div>
+
