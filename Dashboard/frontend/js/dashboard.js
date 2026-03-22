@@ -461,9 +461,26 @@ class Dashboard {
   }
 
   updateStatusStrip(data) {
+    var loadVal = Math.round((data.accelerator !== undefined ? data.accelerator : data.motorLoad) || 0);
+
+    var statusLoadEl = document.getElementById('status-load');
+    if (statusLoadEl) {
+      statusLoadEl.firstChild.textContent = loadVal;
+    }
+
+    var statusGearEl = document.getElementById('status-gear');
+    if (statusGearEl) {
+      statusGearEl.textContent = data.currentGear || 'N';
+    }
+
+    var statusTempEl = document.getElementById('status-temp');
+    if (statusTempEl) {
+      statusTempEl.firstChild.textContent = Math.round(data.motorTemperature || 20);
+    }
+
     var stripLoadEl = document.getElementById('strip-load');
     if (stripLoadEl) {
-      stripLoadEl.textContent = Math.round((data.accelerator !== undefined ? data.accelerator : data.motorLoad) || 0) + '%';
+      stripLoadEl.textContent = loadVal + '%';
     }
 
     var stripFuelEl = document.getElementById('strip-fuel');
