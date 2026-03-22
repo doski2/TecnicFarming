@@ -370,13 +370,11 @@ class Dashboard {
   }
 
   updateHealthAndFuel(data) {
-    // Solo daño físico del motor: vehicleDamageAmount (0-100)
-    // vehicleWearAmount queda excluido — es desgaste general, mostrar en otras tarjetas
-    var damageSource = data.tractorDamage || 0;
-
-    var normalizedDamage = damageSource > 0 && damageSource < 1 ? damageSource * 100 : damageSource;
-    var health = Math.max(0, Math.min(100, 100 - normalizedDamage));
-    var healthPercentage = Math.floor(health);
+    // Desgaste de uso (vehicleWearAmount 0.0-1.0): incrementa con el uso normal del vehículo
+    var wearPercent = Math.round((data.vehicleWearAmount || 0) * 100);
+    var healthPercentage = Math.max(0, 100 - wearPercent);
+    // Daño físico por accidente (vehicleDamageAmount): casi siempre 0 en juego normal
+    var tractorDamage = Math.max(0, Math.min(100, data.tractorDamage || 0));
 
     var healthFillEl = document.getElementById('health-fill');
     if (healthFillEl) {
@@ -395,8 +393,8 @@ class Dashboard {
 
     var healthStatusEl = document.getElementById('health-status');
     if (healthStatusEl) {
-      healthStatusEl.textContent = healthPercentage > 80 ? 'Bueno' : healthPercentage > 60 ? 'Regular' : healthPercentage > 40 ? 'Malo' : 'Crítico';
-      healthStatusEl.style.color = healthPercentage > 80 ? 'var(--lime)' : healthPercentage > 40 ? 'var(--amber)' : 'var(--red)';
+      healthStatusEl.textContent = healthPercentage >= 75 ? 'Nuevo' : healthPercentage >= 50 ? 'Bueno' : healthPercentage >= 25 ? 'Regular' : 'Desgastado';
+      healthStatusEl.style.color = healthPercentage >= 75 ? 'var(--lime)' : healthPercentage >= 25 ? 'var(--amber)' : 'var(--red)';
     }
 
     var healthPercentEl = document.getElementById('health-percent');
@@ -408,8 +406,14 @@ class Dashboard {
     var brokenBadge = document.getElementById('broken-badge');
     if (brokenBadge) {
       // Mostrar badge si el flag llega desde Lua O si el daño es 100%
-      var isBroken = data.isVehicleBroken || (healthPercentage <= 0);
+      var isBroken = data.isVehicleBroken || (tractorDamage >= 100);
       brokenBadge.style.display = isBroken ? '' : 'none';
+    }
+
+    var damagePercentEl = document.getElementById('damage-percent');
+    if (damagePercentEl) {
+      damagePercentEl.textContent = Math.round(tractorDamage) + '%';
+      damagePercentEl.style.color = tractorDamage > 10 ? 'var(--red)' : '';
     }
 
     var autonomyEl = document.getElementById('fuel-autonomy');
@@ -457,21 +461,6 @@ class Dashboard {
   }
 
   updateStatusStrip(data) {
-    var statusLoadEl = document.getElementById('status-load');
-    if (statusLoadEl) {
-      statusLoadEl.textContent = Math.round((data.accelerator !== undefined ? data.accelerator : data.motorLoad) || 0) + '%';
-    }
-
-    var statusGearEl = document.getElementById('status-gear');
-    if (statusGearEl) {
-      statusGearEl.textContent = data.currentGear || 'N';
-    }
-
-    var statusTempEl = document.getElementById('status-temp');
-    if (statusTempEl) {
-      statusTempEl.textContent = Math.round(data.motorTemperature || 20) + '°';
-    }
-
     var stripLoadEl = document.getElementById('strip-load');
     if (stripLoadEl) {
       stripLoadEl.textContent = Math.round((data.accelerator !== undefined ? data.accelerator : data.motorLoad) || 0) + '%';
@@ -555,10 +544,6 @@ class Dashboard {
     }
 
     var slipPercent = Math.round((data.mrAvgDrivenWheelsSlip || 0) * 100);
-    var statusSlipEl = document.getElementById('status-slip');
-    if (statusSlipEl) {
-      statusSlipEl.textContent = slipPercent + '%';
-    }
 
     // Horizonte artificial — pitch y roll
     var pitchDeg = data.pitch || 0;

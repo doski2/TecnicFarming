@@ -59,6 +59,7 @@ export default class TelemetryService {
       implementMassT: 0,
       totalMassT: 0,
       tractorDamage: 0,
+      vehicleWearAmount: 0,
       isVehicleBroken: false,
       isMotorStarted: false,
       transmissionType: 'manual',
@@ -224,9 +225,10 @@ export default class TelemetryService {
     if (obj.fuelPercentage !== undefined) this.currentData.fuelLevel = obj.fuelPercentage;
     if (obj.fuelLevel    !== undefined) this.currentData.fuelLiters   = obj.fuelLevel;
     if (obj.fuelCapacity !== undefined) this.currentData.fuelCapacity = obj.fuelCapacity;
-    // tractorDamage = solo daño del motor/vehículo (vehicleDamageAmount)
-    // vehicleWearAmount se mantiene separado (desgaste de uso, no daño físico)
+    // tractorDamage = daño físico por accidente (vehicleDamageAmount, casi siempre 0)
+    // vehicleWearAmount = desgaste de uso normal (0.0-1.0); es lo que cambia con el uso
     if (obj.vehicleDamageAmount !== undefined) this.currentData.tractorDamage = Math.min(100, (obj.vehicleDamageAmount > 0 && obj.vehicleDamageAmount < 1 ? obj.vehicleDamageAmount * 100 : obj.vehicleDamageAmount));
+    if (obj.vehicleWearAmount !== undefined) this.currentData.vehicleWearAmount = Math.max(0, Math.min(1, obj.vehicleWearAmount));
     if (obj.isVehicleBroken !== undefined) this.currentData.isVehicleBroken = !!obj.isVehicleBroken;
     if (!this.currentData.isVehicleBroken && this.currentData.tractorDamage >= 100) this.currentData.isVehicleBroken = true;
     if (obj.isMotorStarted  !== undefined) this.currentData.isMotorStarted  = !!obj.isMotorStarted;

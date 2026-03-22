@@ -119,13 +119,14 @@ class TelemetryClient {
       pitch: data.pitch || data.vehicleWorldXRot || 0,
       roll: data.roll || data.vehicleWorldZRot || 0,
 
-      // Damage: solo el daño físico del motor/vehículo (vehicleDamageAmount)
-      // vehicleWearAmount es desgaste acumulado de uso, se muestra en otras tarjetas separadas
+      // tractorDamage = daño físico por accidente (casi siempre 0 en juego normal)
+      // vehicleWearAmount = desgaste acumulado de uso (0.0-1.0); es el indicador real de salud
       tractorDamage: data.tractorDamage !== undefined
         ? data.tractorDamage
         : (data.vehicleDamageAmount !== undefined
             ? (data.vehicleDamageAmount > 0 && data.vehicleDamageAmount < 1 ? data.vehicleDamageAmount * 100 : data.vehicleDamageAmount)
             : 0),
+      vehicleWearAmount: data.vehicleWearAmount || 0,
       isVehicleBroken: data.isVehicleBroken || false,
 
       // MR power band + ECO/peak
