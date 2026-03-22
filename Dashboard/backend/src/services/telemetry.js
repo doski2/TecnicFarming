@@ -239,6 +239,10 @@ export default class TelemetryService {
     if (obj.mrMinEcoRpm       !== undefined) this.currentData.mrMinEcoRpm       = obj.mrMinEcoRpm;
     if (obj.minRpm            !== undefined) this.currentData.minRpm            = obj.minRpm;
     if (obj.maxRpm            !== undefined) this.currentData.maxRpm            = obj.maxRpm;
+    // Masa real del vehículo (en toneladas, enviada por SHTelemetry.lua via getTotalMass)
+    if (obj.vehicleMassT   !== undefined) this.currentData.vehicleMassT   = obj.vehicleMassT;
+    if (obj.implementMassT !== undefined) this.currentData.implementMassT = obj.implementMassT;
+    if (obj.totalMassT     !== undefined) this.currentData.totalMassT     = obj.totalMassT;
     // Wheel traction (from captureWheelData in SHTelemetry_Extensions)
     if (obj.driveType !== undefined) this.currentData.driveType = obj.driveType;
     // Lua sends wheelTraction as a 1-indexed table → JSON may be array or {"1":{},"2":{}...}
