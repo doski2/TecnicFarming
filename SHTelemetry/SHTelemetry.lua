@@ -211,13 +211,20 @@ function SHTelemetry:buildTelemetry(telemetryDt)
 				local mLoad = 0
 				if SHTelemetry.Telemetry.isMoreRealistic and engine.motorAppliedTorque ~= nil and engine.peakMotorPower ~= nil then
 					-- Fórmula de MoreRealistic: (Torque * RPM / 9.55) / PotenciaMáxima
+					-- math.abs: en reversa motorAppliedTorque puede ser negativo → sigue siendo esfuerzo real
 					local curRpm = engine.lastMotorRpm or (engine.motorRotSpeed * 9.5493)
-					local curPower = engine.motorAppliedTorque * (curRpm * math.pi / 30)
+					local curPower = math.abs(engine.motorAppliedTorque) * (curRpm * math.pi / 30)
 					mLoad = curPower / engine.peakMotorPower
 				else
-					-- Fallback estándar FS25: spec_motorized.actualLoadPercentage (0-1) es el más fiable
-					-- rawLoadPercentage (0-1) es la fuente interna clamped en Motorized.lua
-					mLoad = spec_motorized.actualLoadPercentage or 0
+					-- Fallback estándar FS25: spec_motorized.actualLoadPercentage (0-1)
+					-- math.abs: FS25 puede reportar valor negativo en reversa (tracción inversa)
+					mLoad = math.abs(spec_motorized.actualLoadPercentage or 0)
+				end
+				-- Fallback extra en reversa: si load sigue a 0 pero hay pedal de acelerador,
+				-- usar el pedal como proxy del esfuerzo del motor
+				if mLoad == 0 and SHTelemetry.Telemetry.isReverseDirection
+					and engine.lastAcceleratorPedal ~= nil then
+					mLoad = engine.lastAcceleratorPedal or 0
 				end
 				SHTelemetry.Telemetry.motorLoad = self:clamp(mLoad * 100, 0, 125) -- MR permite hasta 125% en picos
 
