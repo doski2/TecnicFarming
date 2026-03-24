@@ -138,7 +138,6 @@ TecnicFarming/
 ### ❌ Por Hacer (Fase 2)
 
 - [x] Histórico de datos
-- [ ] Chart.js para gráficos
 - [ ] Análisis IA (TensorFlow.js)
 
 ---
