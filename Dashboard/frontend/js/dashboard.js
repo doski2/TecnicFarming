@@ -654,7 +654,7 @@ class Dashboard {
       if (latRowEl) {
         if (info.latSlip != null) {
           var latPct = Math.round(info.latSlip * 100);
-          latRowEl.style.display = '';
+          latRowEl.classList.remove('wt-hidden');
           if (latFillEl) {
             latFillEl.style.width = Math.min(100, latPct) + '%';
             latFillEl.className = 'wheel-slip-fill wheel-latslip-fill';
@@ -663,7 +663,7 @@ class Dashboard {
           }
           if (latValEl) latValEl.textContent = latPct + '%';
         } else {
-          latRowEl.style.display = 'none';
+          latRowEl.classList.add('wt-hidden');
         }
       }
 
@@ -671,11 +671,10 @@ class Dashboard {
       var groundEl = document.getElementById('wheel-ground-' + pos);
       if (groundEl) {
         if (info.groundType != null) {
-          groundEl.style.display = '';
           groundEl.textContent = info.groundType;
           groundEl.className = 'wheel-ground-badge ground-' + info.groundType.toLowerCase();
         } else {
-          groundEl.style.display = 'none';
+          groundEl.classList.add('wt-hidden');
         }
       }
 
@@ -690,12 +689,12 @@ class Dashboard {
       var loadUnitEl = document.getElementById('wheel-loadunit-' + pos);
       if (loadValEl && loadUnitEl) {
         if (info.tireLoadKN != null) {
-          loadValEl.style.display  = '';
-          loadUnitEl.style.display = '';
+          loadValEl.classList.remove('wt-hidden');
+          loadUnitEl.classList.remove('wt-hidden');
           loadValEl.textContent = info.tireLoadKN.toFixed(1);
         } else {
-          loadValEl.style.display  = 'none';
-          loadUnitEl.style.display = 'none';
+          loadValEl.classList.add('wt-hidden');
+          loadUnitEl.classList.add('wt-hidden');
         }
       }
     }
