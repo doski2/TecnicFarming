@@ -22,128 +22,6 @@
   pointer-events: none;
 }
 
-.tractor-hitch-bar,
-.tractor-hitch-arm {
-  fill: none;
-  stroke: #47657c;
-  stroke-width: 1.4;
-  stroke-linecap: round;
-}
-
-.tractor-hitch-link {
-  fill: none;
-  stroke: #47657c;
-  stroke-width: 1.2;
-  stroke-linecap: round;
-}
-
-.tractor-cab-red {
-  fill: url(#tractorRedCab);
-  stroke: #6d1615;
-  stroke-width: 1.4;
-}
-
-.tractor-light-strip {
-  fill: #f0f4f7;
-  stroke: #aab4be;
-  stroke-width: 0.8;
-}
-
-.tractor-window-fill {
-  fill: url(#tractorGlass);
-  stroke: none;
-}
-
-.tractor-window-frame {
-  fill: none;
-  stroke: #667987;
-  stroke-width: 1.5;
-}
-
-.tractor-frame {
-  fill: none;
-  stroke: #4c6478;
-  stroke-width: 1;
-  stroke-linecap: round;
-}
-
-.tractor-antenna {
-  fill: none;
-  stroke: #b9c4cf;
-  stroke-width: 1;
-}
-
-.tractor-mirror {
-  fill: none;
-  stroke: #aeb7c2;
-  stroke-width: 1;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.tractor-beacon {
-  fill: #f3be2a;
-  stroke: #9f6904;
-  stroke-width: 0.8;
-}
-
-.tractor-headlight {
-  fill: #f4f7fb;
-  stroke: #9ca9b6;
-  stroke-width: 0.8;
-}
-
-.tractor-wheel {
-  fill: url(#tractorWheelBody);
-  stroke: #12161b;
-  stroke-width: 1.5;
-}
-
-.tractor-wheel-hub {
-  fill: url(#tractorWheelRim);
-  stroke: #5d7590;
-  stroke-width: 1.2;
-}
-
-.tractor-wheel-rim {
-  fill: none;
-  stroke: rgba(43,59,72,0.95);
-  stroke-width: 5.5;
-  stroke-dasharray: 4 4;
-}
-
-.tractor-hitch {
-  fill: none;
-  stroke: #395c73;
-  stroke-width: 1.2;
-}
-
-.tractor-hitch-box {
-  fill: rgba(180, 195, 210, 0.8);
-  stroke: #395c73;
-  stroke-width: 1.1;
-}
-
-.tractor-lower-link {
-  fill: none;
-  stroke: #395c73;
-  stroke-width: 1.2;
-  stroke-linecap: round;
-}
-
-.tractor-ground {
-  fill: none;
-  stroke: rgba(41,90,130,0.22);
-  stroke-width: 1;
-}
-
-.tractor-fender-line {
-  fill: none;
-  stroke: #4f7088;
-  stroke-width: 1;
-  stroke-linecap: round;
-}
-
 /* Implement Status */
 .implement-status {
   background: linear-gradient(135deg, rgba(168,255,62,0.06) 0%, transparent 100%);
@@ -914,6 +792,11 @@
   color: var(--text-sec);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.health-label-muted {
+  opacity: 0.55;
+  margin-top: 4px;
 }
 
 /* fuel-fill arranca al 0%; JS actualiza style.width en cada tick */
