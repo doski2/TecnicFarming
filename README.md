@@ -131,14 +131,14 @@ TecnicFarming/
 
 ### ⏳ En Desarrollo
 
-- [ ] Backend Node.js + Socket.io
-- [ ] Conexión Named Pipe
-- [ ] Datos en tiempo real
+- [x] Backend Node.js + Socket.io
+- [x] Conexión Named Pipe
+- [x] Datos en tiempo real
 
 ### ❌ Por Hacer (Fase 2)
 
+- [x] Histórico de datos
 - [ ] Chart.js para gráficos
-- [ ] Histórico de datos
 - [ ] Análisis IA (TensorFlow.js)
 
 ---
@@ -203,5 +203,5 @@ Dashboard desarrollado para optimizar análisis de rendimiento en Farming Simula
 
 ---
 
-**Última actualización:** 17 de marzo de 2026  
+**Última actualización:** 25 de marzo de 2026  
 **Estado:** En desarrollo activo 🚀

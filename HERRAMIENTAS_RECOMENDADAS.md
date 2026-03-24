@@ -207,14 +207,14 @@ socket.on('telemetry', (data) => {
 
 - [x] Dashboard HTML/CSS (Vanilla) ✅
 - [x] SVG Tachometer ✅
-- [ ] **Conectar Backend Node.js → FSTelemetry**
-- [ ] **Implementar Socket.io WebSocket**
+- [x] **Conectar Backend Node.js → FSTelemetry** ✅
+- [x] **Implementar Socket.io WebSocket** ✅
 
 ### Fase 2
 
 - [ ] Reemplazar gráfico consumo con Chart.js
-- [ ] Agregar gráficos históricos de RPM, torque, consumo y velocidad
-- [ ] Agregar mini gráficas de tendencia por misión
+- [x] Agregar gráficos históricos de RPM, torque, consumo y velocidad ✅
+- [x] Agregar mini gráficas de tendencia por misión ✅
 - [ ] Optimización de payload con MessagePack
 
 ### Fase 3
