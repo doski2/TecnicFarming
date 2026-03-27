@@ -209,55 +209,45 @@ function SHTelemetry:captureWheelData(vehicle, telemetry)
 			end
 
 			if i <= 4 then
-				local wt           = telemetry.wheelTraction[i]
-				local isMotorized  = motorizedWheelIndices[i] or false
-				wt.motorized       = isMotorized
+				local wt  = telemetry.wheelTraction[i]
+				local ph  = wheel.physics
+
+				-- ── Detección de rueda motorizada ─────────────────────────
+				-- Prioridad: mrIsDriven de MR (más fiable) > índices de diferencial
+				local isMotorized
+				if ph ~= nil and ph.mrIsDriven ~= nil then
+					isMotorized = ph.mrIsDriven
+				else
+					isMotorized = motorizedWheelIndices[i] or false
+				end
+				wt.motorized = isMotorized
 
 				-- ── Slip por rueda ────────────────────────────────────────
-				-- SDK vanilla no expone slip en netInfo (solo x,y,z,suspensionLength).
-				-- MR sobreescribe este valor más abajo con mrLastLongSlip.
 				wt.slip = 0
 
 				-- ── Velocidad de rueda [m/s] ───────────────────────────────
-				-- rotSpeed [rad/s] × radius [m] = velocidad periférica [m/s]
 				local spd = 0
-				if wheel.physics ~= nil
-					and wheel.physics.rotSpeed ~= nil
-					and wheel.physics.radius ~= nil then
-					spd = wheel.physics.rotSpeed * wheel.physics.radius
+				if ph ~= nil and ph.rotSpeed ~= nil and ph.radius ~= nil then
+					spd = ph.rotSpeed * ph.radius
 				end
 				wt.speedMs = math.abs(spd)
 
 				-- ── Contacto con el suelo ──────────────────────────────────
-				if wheel.physics ~= nil then
-					wt.contact = (wheel.physics.hasGroundContact == true)
+				if ph ~= nil then
+					wt.contact = (ph.hasGroundContact == true)
 				end
 
 				-- ── Torque por rueda ───────────────────────────────────────
-				-- Intentar wheel.physics.torque [t·m/s²] (WheelPhysics campo propio)
-				-- Normalizar: en 4WD, cada rueda recibe ~25% del peak del motor
+				-- ph.torque existe en FS25 pero siempre es 0.0 (non-nil): no usarlo.
+				-- MR tampoco expone torque individual. Usar la carga global del motor.
 				if isMotorized then
-					local wTorq = nil
-					if wheel.physics ~= nil then
-						wTorq = wheel.physics.torque
-					end
-
-					if wTorq ~= nil and peakTorq > 0 then
-						wt.torquePercent = math.max(0,
-							math.min(100, math.abs(wTorq) / (peakTorq * 0.25) * 100))
-					else
-						-- Fallback: señal global del motor
-						wt.torquePercent = motorTorquePct
-					end
+					wt.torquePercent = motorTorquePct
 				end
 
 				-- ================================================================
 				-- CAMPOS EXCLUSIVOS DE MOREALISTIC_FS25
-				-- Disponibles cuando wheel.physics tiene campos mrLast*
-				-- Ofrecen datos de física más precisos que el SDK base de FS25
 				-- ================================================================
-				if wheel.physics ~= nil then
-					local ph = wheel.physics
+				if ph ~= nil then
 
 					-- Carga de neumático en KN (peso distribuido sobre esta rueda)
 					if ph.mrLastTireLoad ~= nil then
@@ -277,17 +267,31 @@ function SHTelemetry:captureWheelData(vehicle, telemetry)
 					end
 
 					-- Tipo de suelo bajo esta rueda (MR)
-					-- WheelsUtil.GROUND_ROAD=0, GROUND_HARD_TERRAIN=1, GROUND_SOFT_TERRAIN=2, GROUND_FIELD=3
+					-- Usar las constantes WheelsUtil.GROUND_* directamente, igual que MR,
+					-- en lugar de números hardcodeados cuyos valores son opacos.
 					if ph.mrLastGroundType ~= nil then
-						local groundNames = {[0]="ROAD", [1]="HARD", [2]="SOFT", [3]="FIELD"}
-						-- or nil: si el valor no está en la tabla no mostrar ROAD por defecto
-						wt.groundType = groundNames[ph.mrLastGroundType] or nil
+						local gt = ph.mrLastGroundType
+						if     gt == WheelsUtil.GROUND_FIELD        then wt.groundType = "FIELD"
+						elseif gt == WheelsUtil.GROUND_SOFT_TERRAIN then wt.groundType = "SOFT"
+						elseif gt == WheelsUtil.GROUND_HARD_TERRAIN then wt.groundType = "HARD"
+						elseif gt == WheelsUtil.GROUND_ROAD         then wt.groundType = "ROAD"
+						end
 					end
 
-					-- MR driven detection: más fiable que los índices de diferencial
-					if ph.mrIsDriven ~= nil then
-						wt.motorized = ph.mrIsDriven
+					-- Resistencia a la rodadura MR (factor compuesto: presión + humedad + tipo suelo)
+					-- 1.0 = sin resistencia (asfalto seco), >1 = mayor resistencia (campo húmedo)
+					if ph.mrLastRrFx ~= nil then
+						wt.rrFx = ph.mrLastRrFx
 					end
+
+					-- Factor de presión del neumático MR (NUEVO en MR 0.26.03.25)
+					-- Refleja cuánto se "hunde" el neumático por la carga (presión suelo/neumático)
+					-- Valores altos = más hundimiento = más resistencia a la rodadura en campo
+					if ph.mrLastPressureFx ~= nil then
+						wt.pressureFx = ph.mrLastPressureFx
+					end
+
+					-- MR driven detection: ya aplicado antes del cálculo de torque
 
 					-- Fallback vanilla FS25: si MR no asignó ground type,
 					-- estimar usando densityType (campo ≠ 0) y groundDepth
@@ -349,6 +353,38 @@ function SHTelemetry:captureWheelData(vehicle, telemetry)
 			telemetry.driveType = "RWD"
 		else
 			telemetry.driveType = (spec_motorized ~= nil) and "4WD" or "2WD"
+		end
+	end
+
+	-- ================================================================
+	-- PASO 5: Redistribuir torque por rueda según peso real (mrLastTireLoad)
+	-- motorTorquePct es global → cada rueda recibe proporcionalmente a su carga
+	-- Ruedas traseras trasladadas de carga (campo con tiro) → más TRQ visualizado
+	-- Solo aplica cuando MR reporta tireLoadKN para al menos 2 ruedas driven
+	-- ================================================================
+	if motorTorquePct > 0 then
+		local totalDrivenLoad = 0
+		local nDriven         = 0
+		for i = 1, 4 do
+			local wt = telemetry.wheelTraction[i]
+			if wt.motorized then
+				nDriven = nDriven + 1
+				if wt.tireLoadKN ~= nil then
+					totalDrivenLoad = totalDrivenLoad + wt.tireLoadKN
+				end
+			end
+		end
+		-- Solo redistribuir si tenemos carga real de MR; si no, dejar motorTorquePct igual para todas
+		if totalDrivenLoad > 0 and nDriven > 0 then
+			local avgLoad = totalDrivenLoad / nDriven
+			for i = 1, 4 do
+				local wt = telemetry.wheelTraction[i]
+				if wt.motorized and wt.tireLoadKN ~= nil then
+					-- ratio > 1 → rueda más cargada → más TRQ; ratio < 1 → menos TRQ
+					local ratio = wt.tireLoadKN / avgLoad
+					wt.torquePercent = math.max(0, math.min(100, motorTorquePct * ratio))
+				end
+			end
 		end
 	end
 end

@@ -263,7 +263,9 @@ export default class TelemetryService {
             tireLoadKN:   (w && w.tireLoadKN  != null) ? w.tireLoadKN  : null,
             longSlip:     (w && w.longSlip    != null) ? w.longSlip    : null,
             latSlip:      (w && w.latSlip     != null) ? w.latSlip     : null,
-            groundType:   (w && w.groundType)  || null
+            groundType:   (w && w.groundType)  || null,
+            rrFx:         (w && w.rrFx        != null) ? w.rrFx        : null,
+            pressureFx:   (w && w.pressureFx  != null) ? w.pressureFx  : null
           };
         });
       }

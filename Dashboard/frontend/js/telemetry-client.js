@@ -161,7 +161,9 @@ class TelemetryClient {
           tireLoadKN:   w?.tireLoadKN   ?? null,
           longSlip:     w?.longSlip     ?? null,
           latSlip:      w?.latSlip      ?? null,
-          groundType:   w?.groundType   ?? null
+          groundType:   w?.groundType   ?? null,
+          rrFx:         w?.rrFx         ?? null,
+          pressureFx:   w?.pressureFx   ?? null
         };
       }).concat(
         // Garantizar siempre 4 ruedas aunque lleguen menos
@@ -170,7 +172,7 @@ class TelemetryClient {
             const pos = ['FL','FR','RL','RR'][i + (data.wheelTraction?.length || 0)];
             return { position: pos, motorized: true, torquePercent: 0, slip: 0,
                      speedMs: 0, contact: false, tireLoadKN: null, longSlip: null,
-                     latSlip: null, groundType: null };
+                     latSlip: null, groundType: null, rrFx: null, pressureFx: null };
           })
       ).slice(0, 4),
 

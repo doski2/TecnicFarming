@@ -629,9 +629,14 @@ class Dashboard {
       if (barEl) {
         barEl.style.width = pct.toFixed(1) + '%';
         barEl.className = 'wheel-torque-bar';
-        if (pct > 80)      barEl.classList.add('high');
+        if      (pct > 80) barEl.classList.add('high');
         else if (pct > 50) barEl.classList.add('med');
+        // Track: limpiar cualquier clase rr-* anterior
+        var trackEl = barEl.parentNode;
+        if (trackEl) trackEl.className = 'wt-bar-track';
       }
+      // Limpiar clases rr-* del approach anterior (border en cellEl)
+      if (cellEl) cellEl.classList.remove('rr-soft', 'rr-field', 'rr-soggy');
       if (torqEl) torqEl.textContent = Math.round(pct);
 
       // Slip longitudinal: prefer MR longSlip when available (more precise)
