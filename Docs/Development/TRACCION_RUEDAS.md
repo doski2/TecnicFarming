@@ -43,11 +43,11 @@ Las 4 ruedas se mapean por orden de índice en `spec_wheels.wheels`:
 | `slip` | float | SDK vanilla (0 en FS25) | Deslizamiento base (reemplazado por `longSlip` con MR) |
 | `speedMs` | float | `rotSpeed × radius` | Velocidad periférica de la rueda [m/s] |
 | `contact` | bool | `hasGroundContact` | Si la rueda toca el suelo |
-| `tireLoadKN` | float | MR `mrLastTireLoad` | Carga vertical sobre la rueda [kN] |
+| `tireLoadKN` | float | MR `mrLastTireLoadS` (fallback: `mrLastTireLoad`) | Carga vertical suavizada sobre la rueda [kN] |
 | `longSlip` | float 0–1 | MR `mrLastLongSlip` | Deslizamiento longitudinal (tracción/frenada) |
 | `latSlip` | float 0–1 | MR `mrLastLatSlip` | Deslizamiento lateral (derrape en curva) |
 | `groundType` | string | MR `mrLastGroundType` | Tipo de suelo: `ROAD`, `HARD`, `SOFT`, `FIELD` |
-| `rrFx` | float | MR `mrLastRrFx` | Factor de resistencia a la rodadura |
+| `rrFx` | float | MR `mrLastRrFx` | Factor de resistencia a la rodadura (suavizado internamente por MR: 0.9/0.1) |
 | `pressureFx` | float | MR `mrLastPressureFx` | Factor de presión del neumático (desde MR 0.26.03.25) |
 
 ---
@@ -90,13 +90,15 @@ Detecta `4WD`, `FWD`, `RWD` o `2WD` para el badge del panel.
 
 ### Paso 5 — Redistribución de torque por carga (solo con MR)
 
-Como MR no expone torque individual por rueda, se aproxima redistributyendo `motorTorquePct` proporcionalmente al `tireLoadKN` de cada rueda:
+Como MR no expone torque individual por rueda, se aproxima redistribuyendo `motorTorquePct` proporcionalmente al `tireLoadKN` de cada rueda:
 
 ```text
 torquePercent[rueda] = motorTorquePct × (tireLoad[rueda] / avgTireLoad)
 ```
 
 **Efecto práctico:** con un apero en tiro, las ruedas RR/RL tienen más carga → muestran más TRQ que FL/FR. Esto refleja la transferencia de carga real que ocurre en campo. Si MR no está activo (sin `tireLoadKN`), todas las ruedas muestran el mismo `motorTorquePct`.
+
+> **Fuente de carga:** se usa `mrLastTireLoadS` (suavizado exponencial 0.99/0.01, ~1.5 s de convergencia) en lugar del raw `mrLastTireLoad`. Las barras TRQ son así más estables al transitar entre terrenos. Fallback automático a `mrLastTireLoad` para versiones de MR anteriores a 0.26.04.02.
 
 ---
 
@@ -122,6 +124,8 @@ end
 - `groundDepth < 0.1` → `ROAD`
 
 ---
+
+> **Nota (MR ≥ 0.26.04.02):** Las ruedas motrices tienen un factor de resistencia a la rodadura un 10% menor en seco y 25% menor en mojado respecto a las libres (rueda motriz es más fácil de arrastrar en terreno blando húmedo). Esto afecta al valor `rrFx` que recibimos: en mojado las ruedas motrices mostrarán un `rrFx` aproximadamente 0.75× el de las libres.
 
 ## 5. Visualización en el Dashboard
 
@@ -226,8 +230,8 @@ end
 | `longSlip` | `0` (SDK no lo expone) | `mrLastLongSlip` |
 | `latSlip` | No disponible | `mrLastLatSlip` |
 | `groundType` | Estimado por `groundDepth` | `mrLastGroundType` exacto |
-| `tireLoadKN` | No disponible | `mrLastTireLoad` |
-| `rrFx` | No disponible | `mrLastRrFx` |
+| `tireLoadKN` | No disponible | `mrLastTireLoadS` (fallback `mrLastTireLoad`) |
+| `rrFx` | No disponible | `mrLastRrFx` (suavizado por MR desde 0.26.04.02) |
 | `pressureFx` | No disponible | `mrLastPressureFx` (desde MR 0.26.03.25) |
 
 ---

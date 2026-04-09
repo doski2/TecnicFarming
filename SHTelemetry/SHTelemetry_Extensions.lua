@@ -250,7 +250,10 @@ function SHTelemetry:captureWheelData(vehicle, telemetry)
 				if ph ~= nil then
 
 					-- Carga de neumático en KN (peso distribuido sobre esta rueda)
-					if ph.mrLastTireLoad ~= nil then
+					-- mrLastTireLoadS = versión suavizada (0.99/0.01) → distribución TRQ más estable
+					if ph.mrLastTireLoadS ~= nil then
+						wt.tireLoadKN = ph.mrLastTireLoadS
+					elseif ph.mrLastTireLoad ~= nil then
 						wt.tireLoadKN = ph.mrLastTireLoad
 					end
 
