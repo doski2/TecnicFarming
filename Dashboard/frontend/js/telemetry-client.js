@@ -110,9 +110,11 @@ class TelemetryClient {
       gearGroupName: data.gearGroupName || '',
 
       // Implement data
-      implementsAttached: data.implementsAttached || false,
-      implementLowered: data.implementLowered || false,
-      implementWorking: data.implementWorking || false,
+      implementsAttached: data.implementsAttached || 0,
+      implementName:      data.implementName      || '',
+      implementLowered:   data.implementLowered   || false,
+      implementWorking:   data.implementWorking   || false,
+      workType:           data.workType           || 'UNKNOWN',
       mrAvgDrivenWheelsSlip: data.mrAvgDrivenWheelsSlip || data.wheelSlip?.[0] || 0,
 
       // Terrain data

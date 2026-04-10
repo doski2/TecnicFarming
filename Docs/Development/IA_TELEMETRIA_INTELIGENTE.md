@@ -1,6 +1,6 @@
 # 🧠 IA Telemetría Inteligente — Diseño del Sistema
 
-> **Estado:** Idea en diseño — Fase 4 del proyecto  
+> **Estado:** Fase A completada · Fase B en progreso  
 > **Objetivo:** Aprender el comportamiento óptimo de cada tractor+herramienta para dar recomendaciones en tiempo real
 
 ---
@@ -83,8 +83,9 @@ Hay que investigar si el mod MoreRealistic expone estos datos en Lua:
 | `tireBrand` | Marca de neumático | 🔍 Por investigar en MR |
 | `tireSize` | Tamaño del neumático | 🔍 Por investigar en MR |
 | `tireType` | Tipo (carretera, agrícola, etc.) | 🔍 Por investigar en MR |
-| `ballastWeight` | Peso de contrapesos (kg) | 🔍 Por investigar en MR |
-| `frontAxleLoad` | Carga eje delantero | 🔍 Por investigar en MR |
+| `ballastWeight` | Peso de contrapesos (kg) | ❌ Descartado — inferible de `totalMassT` y ratio ejes |
+| `frontAxleLoad` | Carga eje delantero | ✅ Calculado: sum(tireLoadKN FL+FR) |
+| `frontAxleRatio` | % de masa en eje delantero | ✅ Calculado: frontLoad / totalLoad |
 
 > **Nota:** Si MR no expone estos datos directamente, se pueden inferir del comportamiento (un tractor con más contrapeso tendrá menos patinaje trasero con la misma carga).
 
@@ -135,14 +136,16 @@ Cada sesión de trabajo genera una línea JSON por muestra (cada ~1 segundo, no 
 TecnicFarming/
 └── Data/
     ├── sessions/
-    │   ├── 2026-03-25_Fendt942_CULTIVATOR.jsonl
-    │   ├── 2026-03-25_JohnDeere8R_PLOW.jsonl
-    │   └── ...
-    ├── field_mesh/
-    │   ├── field_12_heightmap.json
-    │   └── field_07_slipmap.json
-    └── tractor_profiles/
-        └── profiles.json    ← resumen aprendido por tractor+implemento
+    │   ├── campo_3/                              ← subcarpeta por campo
+    │   │   ├── 2026-04-11_MF8570_HARVESTING.jsonl
+    │   │   └── 2026-04-11_MF8570_SOWING.jsonl
+    │   ├── campo_5/
+    │   │   └── 2026-04-11_JD8R_CULTIVATOR.jsonl
+    │   └── sin_campo/
+    │       └── ...
+    ├── campo_profiles.json                       ← ✅ perfiles acumulados campo+workType
+    └── field_mesh/                               ← pendiente Fase B
+        └── ...
 ```
 
 ### ¿Por qué JSON Lines y no base de datos?
@@ -331,38 +334,45 @@ Si `margenHoras < 1` → **"Justo, acelera"** (ámbar)
 
 ## 9. Fases de Implementación
 
-### Fase A — Recopilación de datos
+### Fase A — Recopilación de datos ✅
 
-- [ ] Añadir detección de campo propio en Lua
-- [ ] Añadir estado de implemento en el payload
-- [ ] Añadir datos de clima en el payload
-- [ ] Guardar `.jsonl` en el backend Node.js
-- [ ] Verificar que los datos llegan correctos
+- [x] Añadir estado de implemento en el payload (`implementName`, `workType`, `implementLowered`, `implementWorking`)
+- [x] Guardar `.jsonl` en el backend Node.js — subcarpetas `campo_N/`
+- [x] Selección manual de campo (selector 1–99, auto-detect pendiente con `FieldUtil`)
+- [x] Campo incluido en cada muestra + en el nombre del archivo
+- [x] `accelerator` incluido en cada muestra del JSONL
+- [x] Verificar que los datos llegan correctos — bug `normalizeTelemetryData` corregido
+- [ ] Detección automática de campo con `FieldUtil.getFieldAtWorldPosition()` — pendiente
+- [ ] Añadir datos de clima en el payload (`weatherState`, `soilMoisture`, `nextRainHours`) — pendiente
 
-### Fase B — Análisis Python
+### Fase B — Análisis Python 🔄
 
-- [ ] Crear `Analysis/explore_sessions.py`
-- [ ] Validar correlaciones: ¿los datos son útiles?
-- [ ] Crear `Analysis/tractor_profile.py`
-- [ ] Crear `Analysis/field_heatmap.py`
-- [ ] Crear `Analysis/weather_window.py`
-- [ ] Revisar resultados y ajustar qué datos recopilar
+- [x] Crear `Scripts/analyze_session.py` — estadísticas por sesión, distribuciones carga/velocidad
+- [x] `recommended_accelerator` — promedio acelerador en zona óptima de carga (70–85 %)
+- [x] Perfil acumulado campo+workType (`campo_profiles.json`) — promedio ponderado entre sesiones
+- [x] Validar correlaciones — `recommended_accelerator` funciona correctamente en prueba real
+- [x] Integración en dashboard — banda de perfil histórico + hint en pestaña marcha
+- [ ] Crear `Analysis/field_heatmap.py` — mapa de calor `posX/Z + slip`
+- [ ] Crear `Analysis/weather_window.py` — ventana de siembra antes de lluvia
+- [ ] Revisar resultados con múltiples sesiones acumuladas
 
-### Fase C — Modelo
+### Fase C — Modelo ⏳
 
 - [ ] Entrenar modelo de perfil óptimo (scikit-learn: regresión o clustering)
 - [ ] Entrenar modelo de predicción climática
-- [ ] Exportar modelo como JSON (compatible con TensorFlow.js o cálculo propio)
+- [ ] Exportar modelo como JSON
 
-### Fase D — Dashboard IA
+### Fase D — Dashboard IA ⏳
 
-- [ ] Añadir sección "IA Advisor" al dashboard
-- [ ] Integrar predicción de ventana de siembra
+- [x] Panel IA construido (`ia-tab.html`) — telemetría en tiempo real + análisis por sesión
+- [x] Panel de archivos grabados por campo — listar, analizar, eliminar
+- [x] Pestaña marcha con hint acelerador basado en análisis histórico
 - [ ] Visualizar mapa de calor del campo
-- [ ] Alertas en tiempo real basadas en el modelo
+- [ ] Alertas en tiempo real basadas en modelo
+- [ ] Predicción de ventana de siembra
 
 ---
 
-**Última actualización:** 25 de marzo de 2026  
+**Última actualización:** 11 de abril de 2026  
 **Autor:** TecnicFarming  
-**Estado:** Diseño conceptual — en espera de Fase A
+**Estado:** Fase A completada · Fase B en progreso — análisis por sesión y perfiles acumulados operativos

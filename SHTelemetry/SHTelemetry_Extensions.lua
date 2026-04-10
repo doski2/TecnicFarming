@@ -78,24 +78,134 @@ end
 -- CAPTURA DE CARGA DE TRABAJO (IMPLEMENT USAGE)
 -- ============================================================================
 
+-- Detecta el tipo de trabajo según las especializaciones del implemento
+local function detectWorkType(obj)
+	-- COSECHADORAS
+	if obj.spec_combine           ~= nil then return "HARVESTER"  end
+	if obj.spec_cutter            ~= nil then return "HARVESTER"  end
+	-- SEMBRADORAS / SEMBRADORAS DE PRECISION
+	if obj.spec_sowingMachine     ~= nil then return "SOWER"      end
+	if obj.spec_directSowingMachine ~= nil then return "SOWER"   end
+	-- ABONADORAS / ESPARCIDORES
+	if obj.spec_sprayer           ~= nil then return "SPRAYER"    end
+	if obj.spec_fertilizer        ~= nil then return "FERTILIZER" end
+	if obj.spec_manureSpreader    ~= nil then return "FERTILIZER" end
+	-- ARADOS
+	if obj.spec_plow              ~= nil then return "PLOW"       end
+	-- CULTIVADORES (FS25 usa varios nombres segun tipo)
+	if obj.spec_cultivator        ~= nil then return "CULTIVATOR" end
+	if obj.spec_disc              ~= nil then return "CULTIVATOR" end
+	if obj.spec_subsoiler         ~= nil then return "CULTIVATOR" end
+	if obj.spec_rollerCultivator  ~= nil then return "CULTIVATOR" end
+	-- SEGADORAS / EMPACADORAS
+	if obj.spec_mower             ~= nil then return "MOWER"      end
+	if obj.spec_baler             ~= nil then return "BALER"      end
+	if obj.spec_tedder            ~= nil then return "MOWER"      end
+	if obj.spec_windrower         ~= nil then return "MOWER"      end
+	-- TRANSPORTE
+	if obj.spec_trailer           ~= nil then return "TRANSPORT"  end
+	-- FALLBACK: cualquier implemento con area de trabajo = trabajo de campo genérico
+	if obj.spec_workArea          ~= nil then return "FIELDWORK"  end
+	return "UNKNOWN"
+end
+
 function SHTelemetry:captureWorkData(vehicle, telemetry)
 	if vehicle == nil then return end
-	
+
+	-- Valores por defecto del implemento
+	telemetry.implementName    = ""
+	telemetry.implementLowered = false
+	telemetry.implementWorking = false
+	telemetry.workType         = "UNKNOWN"
+
 	-- Buscar implementos acoplados
 	-- SDK AttacherJoints.lua: spec.attachedImplements = {} (línea 458); implement.object ~= nil si hay acoplado
 	if vehicle.spec_attacherJoints ~= nil then
 		local attachedImplements = vehicle.spec_attacherJoints.attachedImplements
 		telemetry.implementsAttached = 0
-		
+
 		if attachedImplements ~= nil then
 			for _, implement in ipairs(attachedImplements) do
 				if implement.object ~= nil then
 					telemetry.implementsAttached = telemetry.implementsAttached + 1
+
+					-- Capturar datos del PRIMER implemento encontrado
+					if telemetry.implementsAttached == 1 then
+					-- Nombre: getFullName() da el nombre de tienda; fallback a getName()
+					local fullName = ""
+					if implement.object.getFullName ~= nil then
+						fullName = implement.object:getFullName() or ""
+					end
+					if fullName == "" and implement.object.getName ~= nil then
+						fullName = implement.object:getName() or ""
+					end
+					telemetry.implementName = fullName
+
+					-- Tipo de trabajo detectado
+					telemetry.workType = detectWorkType(implement.object)
+
+					-- DEBUG (sólo en desarrollo): listar specs del implemento al log
+					-- Para activar: cambiar false a true
+					if false then
+						local specList = ""
+						for k, _ in pairs(implement.object) do
+							if type(k) == "string" and k:sub(1,5) == "spec_" then
+								specList = specList .. k .. ","
+							end
+						end
+						log("SHTelemetry impl specs: " .. specList)
+					end
+					-- Lowered: spec_foldable.isFolded == true → herramienta subida/plegada
+						local specFold = implement.object.spec_foldable
+						if specFold ~= nil then
+							telemetry.implementLowered = not specFold.isFolded
+						else
+							-- Sin mecanismo de plegado → siempre bajado (p.ej. pesos frontales)
+							telemetry.implementLowered = true
+						end
+
+						-- Working: spec_workArea.workAreas no es fiable en FS25 (isActive rara vez cambia).
+						-- Detección prioritaria: specs específicas con campo isWorking.
+						-- Fallback robusto: implemento bajado + vehículo en movimiento.
+						local working = false
+
+						-- Intento 1: specs que exponen isWorking directamente
+						local specNames = {"spec_cultivator", "spec_plow", "spec_mower",
+						                   "spec_combine", "spec_sowingMachine", "spec_sprayer"}
+						for _, sn in ipairs(specNames) do
+							local sp = implement.object[sn]
+							if sp ~= nil and sp.isWorking ~= nil then
+								working = sp.isWorking
+								break
+							end
+						end
+
+						-- Intento 2: workArea isActive (puede funcionar en algunas versiones)
+						if not working then
+							local specWork = implement.object.spec_workArea
+							if specWork ~= nil and specWork.workAreas ~= nil then
+								for _, wa in ipairs(specWork.workAreas) do
+									if wa.isActive then
+										working = true
+										break
+									end
+								end
+							end
+						end
+
+						-- Fallback: implemento bajado + vehículo moviéndose (> 0.3 km/h)
+						if not working then
+							working = telemetry.implementLowered and
+							          (telemetry.speedKmh ~= nil and telemetry.speedKmh > 0.3)
+						end
+
+						telemetry.implementWorking = working
+					end
 				end
 			end
 		end
 	end
-	
+
 	-- Buscar datos de trabajo (si existen spec_cylindered, spec_sprayer, etc.)
 	if vehicle.spec_cylindered ~= nil then
 		local spec = vehicle.spec_cylindered

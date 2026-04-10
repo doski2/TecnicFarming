@@ -1,0 +1,254 @@
+<div class="ia-grid">
+
+  <!-- CAMPO: selector manual por ahora, auto-detect futuro -->
+  <div class="card panel-surface ia-card">
+    <div class="card-title lime">Campo</div>
+    <div class="status-row">
+      <span class="status-label">Campo seleccionado</span>
+      <select id="ia-campo-id" class="campo-select" title="Seleccionar campo">
+        <option value="-1">— Sin campo —</option>
+      </select>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Campo propio</span>
+      <span class="ia-badge" id="ia-campo-owned">—</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Posición (X / Z)</span>
+      <span class="status-value ia-muted" id="ia-pos">— / —</span>
+    </div>
+  </div>
+
+  <!-- IMPLEMENTO: detectado automáticamente del tractor activo -->
+  <div class="card panel-surface ia-card">
+    <div class="card-title teal">Implemento</div>
+    <div class="ia-work-summary" id="ia-work-summary">
+      <span class="ia-work-summary-label">TRABAJO ACTIVO</span>
+      <span class="ia-work-summary-value" id="ia-work-summary-value">SIN IMPLEMENTO</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Nombre</span>
+      <span class="status-value ia-val" id="ia-impl-name">Sin implemento</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Tipo de trabajo</span>
+      <span class="work-type-badge" id="ia-work-type">—</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Enganchados</span>
+      <span class="status-value ia-val" id="ia-impl-count">0</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Herramienta</span>
+      <span class="ia-badge" id="ia-impl-lowered">SUBIDA</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Trabajando</span>
+      <span class="ia-badge" id="ia-impl-working">NO</span>
+    </div>
+  </div>
+
+  <!-- SESIÓN: info del vehículo y estado de grabación -->
+  <div class="card panel-surface ia-card">
+    <div class="card-title amber">Sesión</div>
+    <div class="status-row">
+      <span class="status-label">Vehículo</span>
+      <span class="status-value ia-val ia-vehicle-name" id="ia-vehicle-name">—</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Transmisión</span>
+      <span class="status-value ia-val" id="ia-transmission">—</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Masa total</span>
+      <span class="status-value ia-val" id="ia-mass">— t</span>
+    </div>
+    <div class="status-row">
+      <span class="status-label">Grabación datos</span>
+      <span class="ia-badge ia-badge-wait" id="ia-rec-status">EN ESPERA</span>
+    </div>
+  </div>
+
+  <!-- TELEMETRÍA: resumen de métricas clave en tiempo real -->
+  <div class="card panel-surface ia-card">
+    <div class="card-title card-title-telem">Telemetría</div>
+    <div class="ia-telem-grid">
+      <div class="ia-telem-item">
+        <span class="ia-telem-label">Velocidad</span>
+        <span class="ia-telem-value" id="ia-speed">0</span>
+        <span class="ia-telem-unit">km/h</span>
+      </div>
+      <div class="ia-telem-item">
+        <span class="ia-telem-label">Carga motor</span>
+        <span class="ia-telem-value" id="ia-load">0</span>
+        <span class="ia-telem-unit">%</span>
+      </div>
+      <div class="ia-telem-item">
+        <span class="ia-telem-label">RPM</span>
+        <span class="ia-telem-value" id="ia-rpm">0</span>
+        <span class="ia-telem-unit">rpm</span>
+      </div>
+      <div class="ia-telem-item">
+        <span class="ia-telem-label">Consumo</span>
+        <span class="ia-telem-value" id="ia-fuel">0.0</span>
+        <span class="ia-telem-unit">L/h</span>
+      </div>
+      <div class="ia-telem-item">
+        <span class="ia-telem-label">Patinaje</span>
+        <span class="ia-telem-value" id="ia-slip">0</span>
+        <span class="ia-telem-unit">%</span>
+      </div>
+      <div class="ia-telem-item">
+        <span class="ia-telem-label">Marcha</span>
+        <span class="ia-telem-value ia-val-amber" id="ia-gear">N</span>
+        <span class="ia-telem-unit"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── PANEL DE ANÁLISIS (se muestra al pulsar el botón) ───────────────── -->
+<div class="ia-analysis-bar">
+  <div class="ia-analysis-meta" id="ia-sample-count">0 muestras</div>
+  <button class="ia-analyze-btn" id="ia-analyze-btn" onclick="window.runAnalysis()">
+    Analizar sesión
+  </button>
+</div>
+
+<!-- ── ARCHIVOS GRABADOS DEL CAMPO SELECCIONADO ────────────────────────── -->
+<div class="ia-sessions-panel ia-hidden" id="ia-sessions-panel">
+  <div class="ia-sessions-header">
+    <span class="ia-sessions-title" id="ia-sessions-title">Archivos — Campo —</span>
+    <button class="ia-sessions-refresh" onclick="window.loadCampoSessions()" title="Actualizar lista">↺</button>
+  </div>
+  <div class="ia-sessions-list" id="ia-sessions-list">
+    <span class="ia-sessions-empty">No hay archivos grabados.</span>
+  </div>
+</div>
+
+<!-- Banda de perfil histórico acumulado campo+operación (visible tras el primer análisis) -->
+<div class="ia-profile-strip ia-hidden" id="ia-profile-strip">
+  <span class="ia-profile-label" id="ia-profile-label">CAMPO — —</span>
+  <span class="ia-profile-sep">·</span>
+  <span class="ia-profile-info" id="ia-profile-sessions">— ses.</span>
+  <span class="ia-profile-sep">·</span>
+  <span class="ia-profile-info" id="ia-profile-samples">— muestras</span>
+  <span class="ia-profile-sep">·</span>
+  <span class="ia-profile-rec">Rec. acumulada: <strong id="ia-profile-accel">—</strong> %</span>
+</div>
+
+<div class="ia-analysis-panel ia-hidden" id="ia-analysis-panel">
+  <div class="ia-analysis-header">
+    <span class="ia-analysis-title" id="ia-an-title">—</span>
+    <span class="ia-analysis-sub" id="ia-an-sub">—</span>
+  </div>
+
+  <!-- Recomendación de acelerador (destacada) -->
+  <div class="ia-accel-rec" id="ia-accel-rec">
+    <div class="ia-accel-rec-label">RECOMENDACIÓN DE ACELERADOR</div>
+    <div class="ia-accel-rec-body">
+      <div class="ia-accel-rec-main">
+        <span class="ia-accel-rec-value" id="ia-an-rec-accel">—</span>
+        <span class="ia-accel-rec-unit">%</span>
+      </div>
+      <div class="ia-accel-rec-detail">
+        <span class="ia-accel-rec-sub">Promedio histórico: <strong id="ia-an-avg-accel">—</strong> %</span>
+        <span class="ia-accel-rec-sub" id="ia-an-rec-note">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fila: promedios clave -->
+  <div class="ia-an-grid">
+    <div class="ia-an-item">
+      <span class="ia-an-label">Vel. media</span>
+      <span class="ia-an-value" id="ia-an-speed">—</span>
+      <span class="ia-an-unit">km/h</span>
+    </div>
+    <div class="ia-an-item">
+      <span class="ia-an-label">Carga media</span>
+      <span class="ia-an-value" id="ia-an-load">—</span>
+      <span class="ia-an-unit">%</span>
+    </div>
+    <div class="ia-an-item">
+      <span class="ia-an-label">RPM medio</span>
+      <span class="ia-an-value" id="ia-an-rpm">—</span>
+      <span class="ia-an-unit">rpm</span>
+    </div>
+    <div class="ia-an-item">
+      <span class="ia-an-label">Consumo medio</span>
+      <span class="ia-an-value" id="ia-an-fuel">—</span>
+      <span class="ia-an-unit">L/h</span>
+    </div>
+    <div class="ia-an-item">
+      <span class="ia-an-label">Combustible total</span>
+      <span class="ia-an-value" id="ia-an-fuel-total">—</span>
+      <span class="ia-an-unit">L</span>
+    </div>
+    <div class="ia-an-item">
+      <span class="ia-an-label">Patinaje medio</span>
+      <span class="ia-an-value" id="ia-an-slip">—</span>
+      <span class="ia-an-unit">%</span>
+    </div>
+    <div class="ia-an-item">
+      <span class="ia-an-label">Pico patinaje</span>
+      <span class="ia-an-value ia-an-warn" id="ia-an-slip-peak">—</span>
+      <span class="ia-an-unit">%</span>
+    </div>
+    <div class="ia-an-item">
+      <span class="ia-an-label">Pico carga</span>
+      <span class="ia-an-value ia-an-warn" id="ia-an-load-peak">—</span>
+      <span class="ia-an-unit">%</span>
+    </div>
+  </div>
+
+  <!-- Distribución de carga -->
+  <div class="ia-an-section-title">Distribución carga motor</div>
+  <div class="ia-load-bars" id="ia-load-bars">
+    <div class="ia-load-bar-row" data-bucket="0-30">
+      <span class="ia-load-bar-label">0–30 %</span>
+      <div class="ia-load-bar-track"><div class="ia-load-bar-fill low" id="ia-lb-0-30"></div></div>
+      <span class="ia-load-bar-pct" id="ia-lbp-0-30">—</span>
+    </div>
+    <div class="ia-load-bar-row" data-bucket="30-60">
+      <span class="ia-load-bar-label">30–60 %</span>
+      <div class="ia-load-bar-track"><div class="ia-load-bar-fill mid" id="ia-lb-30-60"></div></div>
+      <span class="ia-load-bar-pct" id="ia-lbp-30-60">—</span>
+    </div>
+    <div class="ia-load-bar-row" data-bucket="60-80">
+      <span class="ia-load-bar-label">60–80 %</span>
+      <div class="ia-load-bar-track"><div class="ia-load-bar-fill high" id="ia-lb-60-80"></div></div>
+      <span class="ia-load-bar-pct" id="ia-lbp-60-80">—</span>
+    </div>
+    <div class="ia-load-bar-row" data-bucket="80-100">
+      <span class="ia-load-bar-label">80–100 %</span>
+      <div class="ia-load-bar-track"><div class="ia-load-bar-fill peak" id="ia-lb-80-100"></div></div>
+      <span class="ia-load-bar-pct" id="ia-lbp-80-100">—</span>
+    </div>
+  </div>
+
+  <!-- Distribución velocidad -->
+  <div class="ia-an-section-title">Distribución de tiempo</div>
+  <div class="ia-speed-dist" id="ia-speed-dist">
+    <div class="ia-sd-item">
+      <span class="ia-sd-label">Parado</span>
+      <span class="ia-sd-value" id="ia-sd-stopped">—</span>
+    </div>
+    <div class="ia-sd-item">
+      <span class="ia-sd-label">Cabecera / lento</span>
+      <span class="ia-sd-value" id="ia-sd-slow">—</span>
+    </div>
+    <div class="ia-sd-item ia-sd-work">
+      <span class="ia-sd-label">Trabajando (4–12 km/h)</span>
+      <span class="ia-sd-value" id="ia-sd-work">—</span>
+    </div>
+    <div class="ia-sd-item">
+      <span class="ia-sd-label">Transporte (&gt;12 km/h)</span>
+      <span class="ia-sd-value" id="ia-sd-fast">—</span>
+    </div>
+  </div>
+
+  <div class="ia-analysis-footer" id="ia-an-file">—</div>
+</div>
+

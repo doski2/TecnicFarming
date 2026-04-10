@@ -404,3 +404,73 @@
     overflow: visible;
   }
 }
+
+/* ============================================================
+   TAB BAR
+   ============================================================ */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tab-btn {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  color: var(--text-sec);
+  font-family: var(--orb);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: var(--lime);
+  border-color: var(--lime-glow);
+}
+
+.tab-btn.tab-active {
+  background: rgba(168,255,62,0.1);
+  border-color: var(--lime);
+  color: var(--lime);
+}
+
+/* ============================================================
+   IA VIEW (pestaña Campo · IA)
+   ============================================================ */
+.ia-view {
+  display: none;
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  height: calc(100vh - 52px - 60px);
+}
+
+.ia-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 12px;
+}
+
+@media (max-width: 1920px) and (max-height: 1080px) {
+  .ia-view {
+    height: calc(100vh - 44px - 44px);
+    padding: 8px;
+  }
+
+  .ia-grid {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .ia-grid {
+    grid-template-columns: 1fr;
+  }
+}

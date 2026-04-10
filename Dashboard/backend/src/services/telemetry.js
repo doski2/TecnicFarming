@@ -1,4 +1,11 @@
 import net from 'net';
+import { appendFileSync, mkdirSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// __dirname = Dashboard/backend/src/services/  → 4 niveles arriba = raíz del proyecto
+const DATA_DIR = join(__dirname, '..', '..', '..', '..', 'Data', 'sessions');
 
 /**
  * Servicio de Telemetría - Servidor TCP
@@ -21,6 +28,10 @@ export default class TelemetryService {
     this.clientCount = 0;
     this.buffer = '';
     this.pendingObject = '';
+    this._lastLogMs = 0;   // throttle logger a 1 muestra/s
+    this._sessionFile = null; // ruta del .jsonl activo
+    this._activeCampo = -1;   // campo seleccionado desde el frontend (-1 = sin campo)
+    this._massEma = null;     // EMA de totalMassT — filtra oscilaciones dinámicas de carga de rueda
     
     // Datos actuales
     this.currentData = {
@@ -61,6 +72,11 @@ export default class TelemetryService {
       tractorDamage: 0,
       vehicleWearAmount: 0,
       isVehicleBroken: false,
+      implementsAttached: 0,
+      implementName: '',
+      implementLowered: false,
+      implementWorking: false,
+      workType: 'TRANSPORT',
       isMotorStarted: false,
       transmissionType: 'manual',
       timestamp: Date.now()
@@ -107,6 +123,7 @@ export default class TelemetryService {
           }
           this.isConnected = false;
           this.isRealData = false;
+          this._massEma = null; // resetear EMA al desconectar (puede ser otro vehículo)
         });
 
         socket.on('error', (err) => {
@@ -145,7 +162,9 @@ export default class TelemetryService {
       // Emitir datos a intervalos regulares
       setInterval(() => {
         if (this.updateCallback && this.isRealData) {
-          this.updateCallback(this.getCurrentData());
+          const d = this.getCurrentData();
+          this.updateCallback(d);
+          this._logSample(d);
         }
       }, this.updateInterval);
 
@@ -244,7 +263,19 @@ export default class TelemetryService {
     // Masa real del vehículo (en toneladas, enviada por SHTelemetry.lua via getTotalMass)
     if (obj.vehicleMassT   !== undefined) this.currentData.vehicleMassT   = obj.vehicleMassT;
     if (obj.implementMassT !== undefined) this.currentData.implementMassT = obj.implementMassT;
-    if (obj.totalMassT     !== undefined) this.currentData.totalMassT     = obj.totalMassT;
+    if (obj.totalMassT !== undefined) {
+      const raw = obj.totalMassT;
+      if (raw > 0) {
+        // EMA α=0.04: ventana efectiva ~25 muestras (~1.5s a 60fps)
+        // Estabiliza oscilaciones de carga dinámica de rueda sin retrasar demasiado
+        if (this._massEma === null) {
+          this._massEma = raw;  // primera muestra: inicializar sin filtrar
+        } else {
+          this._massEma = this._massEma + 0.04 * (raw - this._massEma);
+        }
+        this.currentData.totalMassT = +this._massEma.toFixed(2);
+      }
+    }
     // Wheel traction (from captureWheelData in SHTelemetry_Extensions)
     if (obj.driveType !== undefined) this.currentData.driveType = obj.driveType;
     // Lua sends wheelTraction as a 1-indexed table → JSON may be array or {"1":{},"2":{}...}
@@ -275,7 +306,86 @@ export default class TelemetryService {
       if (obj['wheel_' + wi + '_wear']     !== undefined) this.currentData['wheel_' + wi + '_wear']     = obj['wheel_' + wi + '_wear'];
     }
 
+    // Implement fields (captureWorkData en SHTelemetry_Extensions.lua)
+    if (obj.implementsAttached !== undefined) this.currentData.implementsAttached = obj.implementsAttached;
+    if (obj.implementName      !== undefined) this.currentData.implementName      = obj.implementName  || '';
+    if (obj.implementLowered   !== undefined) this.currentData.implementLowered   = !!obj.implementLowered;
+    if (obj.implementWorking   !== undefined) this.currentData.implementWorking   = !!obj.implementWorking;
+    if (obj.workType           !== undefined) this.currentData.workType           = obj.workType      || 'TRANSPORT';
+
     this.currentData.timestamp = Date.now();
+  }
+
+  /**
+   * Logger JSONL — graba 1 muestra/s cuando la herramienta está trabajando
+   */
+  _logSample(data) {
+    // Grabar cuando el implemento está bajado Y el vehículo se mueve (> 0.3 km/h)
+    // No dependemos de implementWorking (detección Lua podría ser conservadora)
+    const speed = Math.abs(data.speed || 0);
+    if (!data.implementLowered || speed < 0.3) return;
+
+    const now = Date.now();
+    if (now - this._lastLogMs < 1000) return;
+    this._lastLogMs = now;
+
+    // Construir ruta: Data/sessions/campo_3/YYYY-MM-DD_Vehiculo_WorkType.jsonl
+    const today     = new Date().toISOString().slice(0, 10);
+    const safeName  = (data.vehicleName || 'unknown').replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const workType  = (data.workType    || 'UNKNOWN');
+    const campoDir  = this._activeCampo > 0 ? `campo_${this._activeCampo}` : 'sin_campo';
+    const sessionDir = join(DATA_DIR, campoDir);
+    const fileName  = `${today}_${safeName}_${workType}.jsonl`;
+    const filePath  = join(sessionDir, fileName);
+
+    if (this._sessionFile !== filePath) {
+      this._sessionFile = filePath;
+      try {
+        if (!existsSync(sessionDir)) mkdirSync(sessionDir, { recursive: true });
+      } catch (err) {
+        this.logger.error(`Logger: no se pudo crear directorio ${sessionDir}: ${err.message}`);
+        return;
+      }
+      this.logger.info(`Logger: grabando en ${campoDir}/${fileName}`);
+    }
+
+    // Campos derivados de carga de ejes
+    const wt = data.wheelTraction || [];
+    const flKN = (wt[0]?.tireLoadKN) || 0;
+    const frKN = (wt[1]?.tireLoadKN) || 0;
+    const rlKN = (wt[2]?.tireLoadKN) || 0;
+    const rrKN = (wt[3]?.tireLoadKN) || 0;
+    const totalKN = flKN + frKN + rlKN + rrKN;
+    const frontKN = flKN + frKN;
+
+    const sample = {
+      ts:             Math.floor(now / 1000),
+      campo:          this._activeCampo > 0 ? this._activeCampo : null,
+      tractorId:      data.vehicleName   || '',
+      workType:       data.workType      || 'UNKNOWN',
+      implementName:  data.implementName || '',
+      rpm:            data.rpm           || 0,
+      torque:         data.torque        || 0,
+      motorLoad:      +((data.engineLoad  || 0).toFixed(1)),  // engineLoad ya es 0-100
+      accelerator:    +((data.accelerator || 0).toFixed(1)),  // 0-100%
+      fuelUsage:      +(data.consumption || 0).toFixed(2),
+      speed:          +(Math.abs(data.speed || 0)).toFixed(2),
+      gear:           data.gear          || 'N',
+      wheelSlipRL:    +((((wt[2]?.longSlip) || 0) * 100).toFixed(1)),
+      wheelSlipRR:    +((((wt[3]?.longSlip) || 0) * 100).toFixed(1)),
+      pitch:          +(data.pitch        || 0).toFixed(2),
+      roll:           +(data.roll         || 0).toFixed(2),
+      totalMassT:     totalKN > 0 ? +(totalKN / 9.81).toFixed(2) : (data.totalMassT || 0),
+      frontAxleLoad:  +frontKN.toFixed(2),
+      frontAxleRatio: totalKN > 0 ? +(frontKN / totalKN).toFixed(3) : 0.5,
+      transmissionType: data.transmissionType || 'manual'
+    };
+
+    try {
+      appendFileSync(filePath, JSON.stringify(sample) + '\n', 'utf8');
+    } catch (err) {
+      this.logger.error(`Logger: error escribiendo muestra: ${err.message}`);
+    }
   }
 
   /**

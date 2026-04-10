@@ -209,16 +209,31 @@ function SHTelemetry:buildTelemetry(telemetryDt)
 
 				-- Capturar motor load (carga del motor) avanzada
 				local mLoad = 0
-				if SHTelemetry.Telemetry.isMoreRealistic and engine.motorAppliedTorque ~= nil and engine.peakMotorPower ~= nil then
+			if SHTelemetry.Telemetry.isMoreRealistic and engine.motorAppliedTorque ~= nil and engine.peakMotorPower ~= nil then
 					-- Fórmula de MoreRealistic: (Torque * RPM / 9.55) / PotenciaMáxima
-					-- math.abs: en reversa motorAppliedTorque puede ser negativo → sigue siendo esfuerzo real
+					-- En REVERSA: motorAppliedTorque negativo = esfuerzo real hacia atrás → usar abs
+					-- Hacia ADELANTE cuesta abajo: motorAppliedTorque negativo = freno motor (absorbe energía)
+					--   → NO usar abs: el motor NO está sobrecargado, está frenando → mostrar 0%
 					local curRpm = engine.lastMotorRpm or (engine.motorRotSpeed * 9.5493)
-					local curPower = math.abs(engine.motorAppliedTorque) * (curRpm * math.pi / 30)
+					local rawTorque = engine.motorAppliedTorque
+					local effectiveTorque
+					if SHTelemetry.Telemetry.isReverseDirection then
+						effectiveTorque = math.abs(rawTorque) -- reversa: torque negativo = esfuerzo real
+					else
+						effectiveTorque = math.max(0, rawTorque) -- adelante: torque negativo = freno motor = 0% carga
+					end
+					local curPower = effectiveTorque * (curRpm * math.pi / 30)
 					mLoad = curPower / engine.peakMotorPower
 				else
 					-- Fallback estándar FS25: spec_motorized.actualLoadPercentage (0-1)
-					-- math.abs: FS25 puede reportar valor negativo en reversa (tracción inversa)
-					mLoad = math.abs(spec_motorized.actualLoadPercentage or 0)
+					-- En reversa puede ser negativo (tracción inversa) → abs correcto
+					-- Cuesta abajo: FS25 devuelve 0 en este fallback (no hay freno motor negativo aquí)
+					local rawLoad = spec_motorized.actualLoadPercentage or 0
+					if SHTelemetry.Telemetry.isReverseDirection then
+						mLoad = math.abs(rawLoad)
+					else
+						mLoad = math.max(0, rawLoad)
+					end
 				end
 				-- Fallback extra en reversa: si load sigue a 0 pero hay pedal de acelerador,
 				-- usar el pedal como proxy del esfuerzo del motor
