@@ -322,7 +322,7 @@ class Dashboard {
 
     var loadEl = document.getElementById('engine-load');
     if (loadEl && data.motorLoad !== undefined) {
-      var loadVal = Math.round(data.motorLoad);
+      var loadVal = +((+data.motorLoad).toFixed(1));
       loadEl.textContent = loadVal;
       // Histéresis: entrar en sobrecarga a >105%, salir a <95% — evita parpadeo en el límite
       var isOverload = loadEl.classList.contains('overload');
@@ -462,7 +462,7 @@ class Dashboard {
   }
 
   updateStatusStrip(data) {
-    var loadVal = Math.round((data.accelerator !== undefined ? data.accelerator : data.motorLoad) || 0);
+    var loadVal = +((+(data.accelerator || 0)).toFixed(1));
 
     var statusLoadEl = document.getElementById('status-load');
     if (statusLoadEl) {
@@ -769,8 +769,8 @@ class Dashboard {
     // Si hay análisis previo con recomendación de acelerador, añadirla como sufijo
     var an = window._lastAnalysis;
     if (an && an.recommended_accelerator != null && hasData) {
-      var recA  = Math.round(an.recommended_accelerator);
-      var curA  = Math.round(data.accelerator || 0);
+      var recA  = +((+an.recommended_accelerator).toFixed(1));
+      var curA  = +((+(data.accelerator || 0)).toFixed(1));
       var diff  = curA - recA;
       var hint  = '';
       if      (diff >  10) hint = ' · ↓ Acel. ' + recA + '%';
@@ -868,6 +868,9 @@ class Dashboard {
     var wtEl = document.getElementById('ia-work-type');
     if (wtEl) wtEl.textContent = workTypeLabel;
 
+    var cropEl = document.getElementById('ia-crop-type');
+    if (cropEl) cropEl.textContent = data.cropType || '—';
+
     // Implemento: estado lowered
     var lowEl = document.getElementById('ia-impl-lowered');
     if (lowEl) {
@@ -903,7 +906,7 @@ class Dashboard {
     if (speedEl) speedEl.textContent = Math.abs(data.speed || 0).toFixed(1);
 
     var loadEl = document.getElementById('ia-load');
-    if (loadEl) loadEl.textContent = Math.round(data.motorLoad || 0);
+    if (loadEl) loadEl.textContent = +((data.motorLoad || 0).toFixed(1));
 
     var rpmEl = document.getElementById('ia-rpm');
     if (rpmEl) rpmEl.textContent = Math.round(data.engineSpeed || 0);
@@ -1084,7 +1087,7 @@ function _renderProfileStrip(profile) {
   set('ia-profile-sessions', profile.sessions + ' ses.');
   set('ia-profile-samples',  (profile.total_samples || 0).toLocaleString() + ' muestras');
   set('ia-profile-accel',    profile.recommended_accelerator != null
-      ? Math.round(profile.recommended_accelerator) : '—');
+      ? +((+profile.recommended_accelerator).toFixed(1)) : '—');
   strip.classList.remove('ia-hidden');
 }
 // Exponer para section-loader.js
@@ -1125,8 +1128,8 @@ function renderAnalysis(d) {
   // ── Recomendación de acelerador ──────────────────────────────────────────
   var recAccel = d.recommended_accelerator;
   var avgAccel = d.avg_accelerator;
-  set('ia-an-rec-accel', recAccel != null ? Math.round(recAccel) : '—');
-  set('ia-an-avg-accel', avgAccel != null ? Math.round(avgAccel) : '—');
+  set('ia-an-rec-accel', recAccel != null ? +((+recAccel).toFixed(1)) : '—');
+  set('ia-an-avg-accel', avgAccel != null ? +((+avgAccel).toFixed(1)) : '—');
 
   // Nota contextual según carga media
   var note = '';

@@ -41,6 +41,9 @@ Dashboard/backend/logs/*
 # Mods de terceros (disponibles en sus repositorios originales)
 MoreRealistic_FS25-main/
 
+# Datos de sesiones (archivos locales, no versionar)
+Data/sessions/
+
 # Binarios y archivos generados
 *.zip
 *.xlsx

@@ -115,6 +115,7 @@ class TelemetryClient {
       implementLowered:   data.implementLowered   || false,
       implementWorking:   data.implementWorking   || false,
       workType:           data.workType           || 'UNKNOWN',
+      cropType:           data.cropType            || '',
       mrAvgDrivenWheelsSlip: data.mrAvgDrivenWheelsSlip || data.wheelSlip?.[0] || 0,
 
       // Terrain data

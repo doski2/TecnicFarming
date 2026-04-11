@@ -155,12 +155,12 @@ function SHTelemetry:captureWorkData(vehicle, telemetry)
 						end
 						log("SHTelemetry impl specs: " .. specList)
 					end
-					-- Lowered: spec_foldable.isFolded == true → herramienta subida/plegada
-						local specFold = implement.object.spec_foldable
-						if specFold ~= nil then
-							telemetry.implementLowered = not specFold.isFolded
-						else
-							-- Sin mecanismo de plegado → siempre bajado (p.ej. pesos frontales)
+-- Lowered: usar getIsLowered() del SDK (vía jointDesc.moveDown del attacher joint)
+					-- Es más fiable que spec_foldable.isFolded, que no refleja la posición hidráulica real
+					if implement.object.getIsLowered ~= nil then
+						telemetry.implementLowered = implement.object:getIsLowered(true)
+					else
+						-- Sin método getIsLowered → siempre bajado (p.ej. pesos frontales)
 							telemetry.implementLowered = true
 						end
 
@@ -169,14 +169,21 @@ function SHTelemetry:captureWorkData(vehicle, telemetry)
 						-- Fallback robusto: implemento bajado + vehículo en movimiento.
 						local working = false
 
-						-- Intento 1: specs que exponen isWorking directamente
+						-- Intento 1: specs que exponen isWorking directamente en el implemento
 						local specNames = {"spec_cultivator", "spec_plow", "spec_mower",
-						                   "spec_combine", "spec_sowingMachine", "spec_sprayer"}
+						                   "spec_cutter", "spec_sowingMachine", "spec_sprayer"}
 						for _, sn in ipairs(specNames) do
 							local sp = implement.object[sn]
 							if sp ~= nil and sp.isWorking ~= nil then
 								working = sp.isWorking
 								break
+							end
+						end
+
+						-- Para cosechadoras: spec_combine está en el VEHÍCULO, no en el cabezal
+						if not working and vehicle.spec_combine ~= nil then
+							if vehicle.spec_combine.isWorking ~= nil then
+								working = vehicle.spec_combine.isWorking
 							end
 						end
 
@@ -206,6 +213,41 @@ function SHTelemetry:captureWorkData(vehicle, telemetry)
 		end
 	end
 
+	-- Para cosechadoras: fallback via spec_combine.attachedCutters
+	-- (por si el cabezal no apareció en attachedImplements)
+	-- spec_combine.attachedCutters = { [cutterObj] = cutterObj, ... } — tabla hash, NO array
+	if telemetry.implementsAttached == 0 and vehicle.spec_combine ~= nil then
+		local specCombine = vehicle.spec_combine
+		if specCombine.attachedCutters ~= nil and specCombine.numAttachedCutters ~= nil
+			and specCombine.numAttachedCutters > 0 then
+			telemetry.implementsAttached = specCombine.numAttachedCutters
+			telemetry.workType = "HARVESTER"
+			local _, cutter = next(specCombine.attachedCutters)
+			if cutter ~= nil then
+				local fullName = ""
+				if cutter.getFullName ~= nil then fullName = cutter:getFullName() or "" end
+				if fullName == "" and cutter.getName ~= nil then fullName = cutter:getName() or "" end
+				telemetry.implementName = fullName
+				-- Lowered via SDK
+				if cutter.getIsLowered ~= nil then
+					telemetry.implementLowered = cutter:getIsLowered(true)
+				else
+					telemetry.implementLowered = true
+				end
+				-- Working: spec_cutter.isWorking o fallback de velocidad
+				local working = false
+				if cutter.spec_cutter ~= nil and cutter.spec_cutter.isWorking ~= nil then
+					working = cutter.spec_cutter.isWorking
+				end
+				if not working then
+					working = telemetry.implementLowered and
+					          (telemetry.speedKmh ~= nil and telemetry.speedKmh > 0.3)
+				end
+				telemetry.implementWorking = working
+			end
+		end
+	end
+
 	-- Buscar datos de trabajo (si existen spec_cylindered, spec_sprayer, etc.)
 	if vehicle.spec_cylindered ~= nil then
 		local spec = vehicle.spec_cylindered
@@ -214,6 +256,20 @@ function SHTelemetry:captureWorkData(vehicle, telemetry)
 			telemetry.cylinderCapacity = spec.capacity
 			if spec.capacity > 0 then
 				telemetry.cylinderFillPercentage = (spec.currentLiters / spec.capacity) * 100
+			end
+		end
+	end
+
+	-- Detectar tipo de cultivo activo (solo cosechadoras).
+	-- spec_combine.lastValidInputFruitType persiste aunque el tanque esté vacío.
+	-- FruitType.UNKNOWN = 0; índices > 0 son cultivos válidos.
+	telemetry.cropType = ""
+	if vehicle.spec_combine ~= nil then
+		local fruitTypeIdx = vehicle.spec_combine.lastValidInputFruitType
+		if fruitTypeIdx ~= nil and fruitTypeIdx > 0 then
+			local fruitDesc = g_fruitTypeManager:getFruitTypeByIndex(fruitTypeIdx)
+			if fruitDesc ~= nil and fruitDesc.name ~= nil then
+				telemetry.cropType = fruitDesc.name  -- ej: "WHEAT", "MAIZE", "SUNFLOWER"
 			end
 		end
 	end

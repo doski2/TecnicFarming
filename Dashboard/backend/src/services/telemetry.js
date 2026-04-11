@@ -77,6 +77,7 @@ export default class TelemetryService {
       implementLowered: false,
       implementWorking: false,
       workType: 'TRANSPORT',
+      cropType: '',
       isMotorStarted: false,
       transmissionType: 'manual',
       timestamp: Date.now()
@@ -236,6 +237,7 @@ export default class TelemetryService {
     if (obj.powerKW !== undefined) this.currentData.powerKW = obj.powerKW;
     if (obj.vehicleName !== undefined) this.currentData.vehicleName = obj.vehicleName;
     if (obj.motorLoad !== undefined) this.currentData.engineLoad = obj.motorLoad;
+    if (obj.cropType !== undefined) this.currentData.cropType = obj.cropType;
     if (obj.accelerator !== undefined) this.currentData.accelerator = obj.accelerator;
     if (obj.speed !== undefined) this.currentData.speed = obj.speed;
     if (obj.gearName !== undefined) this.currentData.gear = obj.gearName;
@@ -321,7 +323,8 @@ export default class TelemetryService {
    */
   _logSample(data) {
     // Grabar cuando el implemento está bajado Y el vehículo se mueve (> 0.3 km/h)
-    // No dependemos de implementWorking (detección Lua podría ser conservadora)
+    // No filtramos por implementWorking — la detección Lua puede ser conservadora (spec_cutter.isWorking
+    // es false en cabeceras o al inicio del pase antes de tocar el cultivo)
     const speed = Math.abs(data.speed || 0);
     if (!data.implementLowered || speed < 0.3) return;
 
@@ -363,10 +366,11 @@ export default class TelemetryService {
       campo:          this._activeCampo > 0 ? this._activeCampo : null,
       tractorId:      data.vehicleName   || '',
       workType:       data.workType      || 'UNKNOWN',
+      cropType:       data.cropType       || '',
       implementName:  data.implementName || '',
       rpm:            data.rpm           || 0,
       torque:         data.torque        || 0,
-      motorLoad:      +((data.engineLoad  || 0).toFixed(1)),  // engineLoad ya es 0-100
+      motorLoad:      +((data.engineLoad  || 0).toFixed(2)),  // engineLoad ya es 0-100
       accelerator:    +((data.accelerator || 0).toFixed(1)),  // 0-100%
       fuelUsage:      +(data.consumption || 0).toFixed(2),
       speed:          +(Math.abs(data.speed || 0)).toFixed(2),

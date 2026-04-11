@@ -193,8 +193,12 @@ function SHTelemetry:buildTelemetry(telemetryDt)
 -- Movimiento y datos básicos del motor
 			-- SDK: getIsMotorStarted() = motorState == MotorState.ON
 			SHTelemetry.Telemetry.isMotorStarted = vehicle:getIsMotorStarted()
-			-- isReverseDriving e isReverseDirection se calculan abajo con isActuallyReversing
-			SHTelemetry.Telemetry.isReverseDirection = vehicle.movingDirection == vehicle:getReverserDirection()
+			-- isReverseDirection: verdadero cuando el REVERSOR está puesto en marcha atrás.
+			-- Usa getReverserDirection()==-1 como señal primaria (activa desde que se mete la marcha,
+			-- incluso antes de que el vehículo empiece a moverse → fix para load=0 al arrancar en reversa).
+			-- OR movingDirection==-1 como red de seguridad para deslizamientos con marcha adelante.
+			local _revDir = (vehicle.getReverserDirection ~= nil) and vehicle:getReverserDirection() or 1
+			SHTelemetry.Telemetry.isReverseDirection = (_revDir == -1) or (vehicle.movingDirection == -1)
 
 			if engine ~= nil then
 				if engine.getMaxRpm ~= nil then
@@ -350,8 +354,9 @@ function SHTelemetry:buildTelemetry(telemetryDt)
 					acceleratorPedal = 0
 				end
 			end
-			-- CRITICAL: Clamp entre 0-100 para evitar valores negativos/mayores a 100
-			SHTelemetry.Telemetry.accelerator = math.max(0, math.min(100, acceleratorPedal * 100))
+			-- lastAcceleratorPedal es negativo en reversa (input * reverserDirection).
+			-- Usar abs() para mostrar la magnitud del pedal sin importar la dirección.
+			SHTelemetry.Telemetry.accelerator = math.min(100, math.abs(acceleratorPedal) * 100)
 
 			-- isVehicleBroken: usa el mismo spec_wearable ya leído para vehicleDamageAmount.
 			-- Fallback: desgaste >= 100% (wearTotalAmount >= 1)
@@ -364,12 +369,12 @@ function SHTelemetry:buildTelemetry(telemetryDt)
 
 			-- Consumo de combustible
 			-- SDK: spec_motorized.lastFuelUsage = used / dt * 1000 * 60 * 60 → L/h
-			-- MR sobreescribe spec_motorized.lastFuelUsage en L/h (usado / dt * 3600000)
+			-- MR: mrLastFuelUsageS = versión suavizada (0.99/0.01) de lastFuelUsage → más estable
 			-- El campo lastFuelUsage vive en spec_motorized, NO en VehicleMotor.
 			local fuelUsage = spec_motorized.lastFuelUsage or 0
 			if SHTelemetry.Telemetry.isMoreRealistic then
-				-- MR ya calcula en L/h con física real (BSFC + eficiencia por RPM)
-				SHTelemetry.Telemetry.fuelUsage = fuelUsage
+				-- MR: usar valor suavizado para evitar picos del cálculo instantáneo
+				SHTelemetry.Telemetry.fuelUsage = spec_motorized.mrLastFuelUsageS or fuelUsage
 			else
 				-- SDK FS25: lastFuelUsage = used / dt * 1000 * 60 * 60 → ya está en L/h
 				SHTelemetry.Telemetry.fuelUsage = fuelUsage
@@ -408,8 +413,9 @@ function SHTelemetry:buildTelemetry(telemetryDt)
 				and vehicle.spec_motorized.motor.lastAcceleratorPedal ~= nil then
 				acceleratorPedal = vehicle.spec_motorized.motor.lastAcceleratorPedal
 			end
-			-- CRITICAL: Clamp entre 0-100 para evitar valores negativos/mayores a 100
-			SHTelemetry.Telemetry.accelerator = math.max(0, math.min(100, acceleratorPedal * 100))
+			-- lastAcceleratorPedal es negativo en reversa (input * reverserDirection).
+			-- Usar abs() para mostrar la magnitud del pedal sin importar la dirección.
+			SHTelemetry.Telemetry.accelerator = math.min(100, math.abs(acceleratorPedal) * 100)
 			SHTelemetry.Telemetry.rpm = 0  -- Sin motor, RPM es 0
 			SHTelemetry.Telemetry.motorLoad = 0
 		end
@@ -454,7 +460,11 @@ function SHTelemetry:buildTelemetry(telemetryDt)
 		SHTelemetry.Telemetry.isInVehicle = false
 	end
 
-	local res = encode(SHTelemetry.Telemetry)
+	local ok, res = pcall(encode, SHTelemetry.Telemetry)
+	if not ok then
+		print("[SHTelemetry] Error encoding telemetry: " .. tostring(res))
+		return
+	end
 	if SHTelemetry.Context.shfile ~= nil then
 		pcall(function()
 			SHTelemetry.Context.shfile:write(res .. "\n")
