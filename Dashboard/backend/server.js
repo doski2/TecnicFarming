@@ -99,15 +99,18 @@ nsp.on('connection', (socket) => {
 // Iniciar recolección de datos
 logger.info('Iniciando recolección de datos...');
 let emissionCount = 0;
+// Log rate ajustado: UPDATE_FREQUENCY_MS=50 → 20fps → loguear cada 20 emisiones (1/s)
+const LOG_EVERY = Math.max(1, Math.round(1000 / (parseInt(process.env.UPDATE_FREQUENCY_MS) || 50)));
 telemetryService.startCollecting((data) => {
-  // Emitir datos a todos los clientes conectados en el namespace
   emissionCount++;
-  // Obtener número real de clientes conectados
-  const clientCount = nsp.sockets ? nsp.sockets.size || Object.keys(nsp.sockets).length || 0 : 0;
-  if (emissionCount % 60 === 0) { // Log cada 1 segundo (60 FPS)
+  const clientCount = nsp.sockets ? nsp.sockets.size : 0;
+  if (emissionCount % LOG_EVERY === 0) {
     logger.info(`✓ Conectado a FS25: RPM=${Math.round(data.rpm)}, Fuel=${Math.round(data.fuelLevel)}%, Clients=${clientCount}`);
   }
-  nsp.emit('telemetry', data);
+  // Solo serializar y emitir si hay clientes conectados — evita trabajo innecesario
+  if (clientCount > 0) {
+    nsp.emit('telemetry', data);
+  }
 });
 logger.info('✓ Recolección iniciada - ESPERANDO CONEXIÓN A FS25');
 

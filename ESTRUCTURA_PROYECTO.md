@@ -48,7 +48,6 @@ TecnicFarming/
 |       +-- logs/
 |
 +-- SHTelemetry/                          # Mod telemetria SimHub (SHTelemetry.lua)
-+-- TelemetriaFarmingSimulator/           # Mod FSTelemetry (FSTelemetry.lua)
 +-- MoreRealistic_FS25-main/              # Mod fisica realista
 +-- Docs/                                 # Documentacion
 |   +-- Setup/
@@ -96,5 +95,4 @@ Node.js + Express + Socket.io.
 | Carpeta | Descripcion |
 |---|
 | `SHTelemetry/` | Mod que extrae datos del juego via Named Pipe usando SimHub |
-| `TelemetriaFarmingSimulator/` | Mod FSTelemetry alternativo |
 | `MoreRealistic_FS25-main/` | Mod de fisica realista (valores de torque, consumo precisos) |

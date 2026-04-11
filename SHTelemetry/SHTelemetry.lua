@@ -485,7 +485,10 @@ function SHTelemetry:update(dt)
 	SHTelemetry.Context.UpdateDt = SHTelemetry.Context.UpdateDt + dt
 	SHTelemetry.Context.CumulatedDt = SHTelemetry.Context.CumulatedDt + dt
 
-	if SHTelemetry.Context.UpdateDt >= 10 then
+	-- 33ms = ~30Hz. El juego corre a 60fps (dt≈16ms), con 10ms buildTelemetry()
+	-- se ejecutaba en CADA frame. 33ms lo reduce a ~2 frames → mitad de carga en Lua.
+	-- Para un tractor agrícola 30Hz es más que suficiente (el estado cambia cada 50-200ms).
+	if SHTelemetry.Context.UpdateDt >= 33 then
 		local telemetryDt = SHTelemetry.Context.UpdateDt
 		SHTelemetry.Context.UpdateDt = 0
 		-- Init file

@@ -74,7 +74,6 @@ TecnicFarming/
 │       ├── server.js
 │       └── src/services/
 ├── SHTelemetry/           # Mod telemetría (SHTelemetry.lua)
-├── TelemetriaFarmingSimulator/  # Mod FSTelemetry.lua
 ├── MoreRealistic_FS25-main/     # Mod física realista
 ├── Docs/                  # Documentación completa
 ├── start.bat              # Arranque rápido (backend + navegador)

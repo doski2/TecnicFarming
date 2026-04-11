@@ -22,8 +22,9 @@ var DynoChart = (function() {
   var _maxTorque = 1000;
 
   function DynoChart() {
-    this.curves     = this._load();
-    this._saveTimer = null;
+    this.curves       = this._load();
+    this._saveTimer   = null;
+    this._lastRenderMs = 0;  // throttle render a 8fps — la curva dyno no cambia rápido
   }
 
   DynoChart.prototype._load = function() {
@@ -154,6 +155,11 @@ var DynoChart = (function() {
   function el(id) { return document.getElementById(id); }
 
   DynoChart.prototype.render = function(vehicleName, currentRpm, currentTorque, currentMaxTorque, mrBandMin, mrBandMax, mrPeakRpm, mrEcoRpm) {
+    // Throttle a 8fps (125ms): _computeScales + Object.keys + Catmull-Rom + 15 DOM attrs en cada frame es costoso
+    var now = Date.now();
+    if (now - this._lastRenderMs < 125) return;
+    this._lastRenderMs = now;
+
     this._computeScales(vehicleName);
 
     var data       = this._getPoints(vehicleName);
