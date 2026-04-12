@@ -98,7 +98,7 @@ class TestAnalyzePromedios(unittest.TestCase):
     def test_avg_motor_load(self):
         """Promedio de motor_load con valores conocidos."""
         loads = [60.0, 70.0, 80.0, 90.0]  # promedio = 75.0
-        data = [_make_sample(motor_load=l) for l in loads]
+        data = [_make_sample(motor_load=load) for load in loads]
         result = _analyze(data)
         self.assertAlmostEqual(result['avg_motor_load'], 75.0, places=1)
 
@@ -117,7 +117,7 @@ class TestAnalyzePromedios(unittest.TestCase):
 
     def test_peak_load(self):
         """peak_load_pct debe ser el máximo."""
-        data = [_make_sample(motor_load=l) for l in [50, 70, 95, 60]]
+        data = [_make_sample(motor_load=load) for load in [50, 70, 95, 60]]
         result = _analyze(data)
         self.assertAlmostEqual(result['peak_load_pct'], 95.0, places=1)
 
@@ -161,7 +161,7 @@ class TestDistribuciones(unittest.TestCase):
 
     def test_load_dist_suma_100(self):
         """Los buckets de carga deben sumar aproximadamente 100%."""
-        data = [_make_sample(motor_load=l) for l in
+        data = [_make_sample(motor_load=load) for load in
                 [10, 20, 45, 55, 65, 75, 85, 95]]
         result = _analyze(data)
         total = sum(result['load_dist'].values())
