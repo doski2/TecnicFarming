@@ -10,10 +10,10 @@
 
   var scripts = [
     './js/gauge.js',
+    './js/uplot.min.js',
     './js/telemetry-client.js',
     './js/modules/dashboard-clock.js',
     './js/modules/dashboard-terrain.js',
-    './js/modules/dashboard-history.js',
     './js/ui-updater.js',
     './js/dashboard.js'
   ];

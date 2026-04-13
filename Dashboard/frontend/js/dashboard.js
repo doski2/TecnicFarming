@@ -1,34 +1,41 @@
 /**
- * DynoChart — curvas de par motor estilo FS25
+ * DynoChart v4 — curvas de par motor con uPlot (Canvas)
  *
- * Eje X dinámico: de minRPM datos hasta maxRPM datos (usa toda la pantalla)
- * Eje Y dinámico: escala al par máximo real + 15% headroom
- * Curvas suaves mediante Catmull-Rom → Cubic Bézier
+ * uPlot renderiza en <canvas> directo → ~10× más rápido que SVG + setAttribute.
+ * API pública igual: record(vehicleName, rpm, maxTorqueNm, appliedNm) + render(...).
  *
- * Ámbar (sólida) = maxTorqueNm  — par DISPONIBLE (capacidad del motor)
- * Teal  (sólida) = appliedTorque — par APLICADO promedio (demanda real)
- * Barra verde     = carga actual en eje izquierdo
+ * Ámbar = par MÁXIMO acumulado por bucket RPM
+ * Teal  = par APLICADO (EMA) por bucket RPM
+ * Overlay (hooks.draw): barra carga, zona MR, líneas eco/pico, punto vivo
  */
 var DynoChart = (function() {
-  var STORAGE_KEY = 'dyno_curves_v3';
+  var STORAGE_KEY = 'dyno_curves_v4';
   var BUCKET = 25;
   var EMA_A  = 0.35;
-  var W = 280;
-  var H = 160;
-
-  // Escalas dinámicas — actualizadas en cada render(), single-thread safe
-  var _minRpm    = 0;
-  var _maxRpm    = 3000;
-  var _maxTorque = 1000;
 
   function DynoChart() {
-    this.curves       = this._load();
-    this._saveTimer   = null;
-    this._lastRenderMs = 0;  // throttle render a 8fps — la curva dyno no cambia rápido
+    this.curves        = this._load();
+    this._saveTimer    = null;
+    this._lastRenderMs = 0;
+    this._uplot        = null;
+    // Estado de overlay — leído dentro de hooks.draw en cada redibujado
+    this._liveRpm    = 0;
+    this._liveTorque = 0;
+    this._liveLoad   = 0;
+    this._mrBandMin  = 0;
+    this._mrBandMax  = 0;
+    this._mrEcoRpm   = 0;
+    this._mrPeakRpm  = 0;
   }
 
   DynoChart.prototype._load = function() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { return {}; }
+    try {
+      // Migrar datos de v3 si aún no se ha creado v4
+      var prev = localStorage.getItem('dyno_curves_v3');
+      var curr = localStorage.getItem(STORAGE_KEY);
+      if (!curr && prev) { localStorage.setItem(STORAGE_KEY, prev); return JSON.parse(prev) || {}; }
+      return JSON.parse(curr) || {};
+    } catch(e) { return {}; }
   };
 
   DynoChart.prototype._scheduleSave = function() {
@@ -51,8 +58,7 @@ var DynoChart = (function() {
     var c = this.curves[vehicleName];
     var changed = false;
     // Curva ámbar = pico de par APLICADO en cada bucket RPM.
-    // El juego envía maxTorqueNm como constante (par nominal de placa),
-    // por eso no lo usamos aquí — resultaría en una línea plana.
+    // maxTorqueNm del juego = constante de placa → línea plana, no se usa aquí.
     if (appliedNm > 0 && appliedNm > (c.max[b] || 0)) {
       c.max[b] = Math.round(appliedNm); changed = true;
     }
@@ -64,182 +70,220 @@ var DynoChart = (function() {
     if (changed) this._scheduleSave();
   };
 
-  DynoChart.prototype._getPoints = function(vehicleName) {
-    if (!vehicleName || !this.curves[vehicleName]) return { maxPts: [], appliedPts: [] };
+  /** Construye arrays uPlot: [ [rpms], [maxSeries], [appliedSeries] ] */
+  DynoChart.prototype._buildUdata = function(vehicleName) {
+    var empty = [[], [null], [null]];
+    if (!vehicleName || !this.curves[vehicleName]) return empty;
     this._ensureVehicle(vehicleName);
     var c = this.curves[vehicleName];
     var seen = {};
     Object.keys(c.max).forEach(function(k) { seen[k] = true; });
     Object.keys(c.applied).forEach(function(k) { seen[k] = true; });
-    var keys = Object.keys(seen).map(Number).sort(function(a, b) { return a - b; });
-    var maxPts = [], appliedPts = [];
-    for (var i = 0; i < keys.length; i++) {
-      var r = keys[i];
-      if (c.max[r] !== undefined)     maxPts.push({ rpm: r, torque: c.max[r] });
-      if (c.applied[r] !== undefined) appliedPts.push({ rpm: r, torque: c.applied[r] });
-    }
-    return { maxPts: maxPts, appliedPts: appliedPts };
+    var rpms = Object.keys(seen).map(Number).sort(function(a, b) { return a - b; });
+    if (!rpms.length) return empty;
+    var maxSeries = rpms.map(function(r) { return c.max[r] !== undefined     ? c.max[r]     : null; });
+    var appSeries = rpms.map(function(r) { return c.applied[r] !== undefined ? c.applied[r] : null; });
+    return [rpms, maxSeries, appSeries];
   };
 
-  /** Calcula los rangos dinámicos para que los datos usen toda la pantalla */
-  DynoChart.prototype._computeScales = function(vehicleName) {
-    if (!vehicleName || !this.curves[vehicleName]) {
-      _minRpm = 0; _maxRpm = 3000; _maxTorque = 1000; return;
+  /** Overlays dibujados en canvas tras cada render de uPlot */
+  DynoChart.prototype._drawOverlay = function(u) {
+    var ctx = u.ctx;
+    var b   = u.bbox;   // {left, top, width, height} en px de canvas (DPR incluido)
+    var dpr = window.devicePixelRatio || 1;
+    ctx.save();
+
+    // — Zona de potencia MR —
+    if (this._mrBandMin > 0 && this._mrBandMax > this._mrBandMin) {
+      var bx1 = u.valToPos(this._mrBandMin, 'x', true);
+      var bx2 = u.valToPos(this._mrBandMax, 'x', true);
+      if (bx2 > bx1) {
+        var gMR = ctx.createLinearGradient(0, b.top, 0, b.top + b.height);
+        gMR.addColorStop(0,   'rgba(168,255,62,0.18)');
+        gMR.addColorStop(1,   'rgba(168,255,62,0.06)');
+        ctx.fillStyle = gMR;
+        ctx.fillRect(bx1, b.top, bx2 - bx1, b.height);
+      }
     }
-    this._ensureVehicle(vehicleName);
-    var c = this.curves[vehicleName];
-    var allKeys = Object.keys(c.max).concat(Object.keys(c.applied)).map(Number);
-    if (!allKeys.length) { _minRpm = 0; _maxRpm = 3000; _maxTorque = 1000; return; }
 
-    var minKey = Math.min.apply(null, allKeys);
-    var maxKey = Math.max.apply(null, allKeys);
-    // Padding 5% a cada lado para que las curvas no toquen los bordes
-    var pad = Math.max((maxKey - minKey) * 0.05, 50);
-    _minRpm = Math.max(0,    Math.floor((minKey - pad) / 100) * 100);
-    _maxRpm =                Math.ceil( (maxKey + pad) / 100) * 100;
+    // — Línea RPM eco (dashed, lima) —
+    if (this._mrEcoRpm > 0) {
+      var ex = u.valToPos(this._mrEcoRpm, 'x', true);
+      ctx.strokeStyle = 'rgba(168,255,62,0.45)';
+      ctx.lineWidth = dpr;
+      ctx.setLineDash([3 * dpr, 3 * dpr]);
+      ctx.beginPath(); ctx.moveTo(ex, b.top); ctx.lineTo(ex, b.top + b.height); ctx.stroke();
+    }
 
-    var allTorques = [];
-    Object.keys(c.max).forEach(function(k) { allTorques.push(c.max[k]); });
-    Object.keys(c.applied).forEach(function(k) { allTorques.push(c.applied[k]); });
-    var maxT = allTorques.length ? Math.max.apply(null, allTorques) : 1000;
-    _maxTorque = Math.max(Math.ceil(maxT * 1.15 / 100) * 100, 100);
+    // — Línea RPM pico (dashed, ámbar) —
+    if (this._mrPeakRpm > 0) {
+      var px = u.valToPos(this._mrPeakRpm, 'x', true);
+      ctx.strokeStyle = 'rgba(255,170,0,0.55)';
+      ctx.lineWidth = dpr;
+      ctx.setLineDash([3 * dpr, 3 * dpr]);
+      ctx.beginPath(); ctx.moveTo(px, b.top); ctx.lineTo(px, b.top + b.height); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // — Línea vertical RPM actual —
+    if (this._liveRpm > 0) {
+      var rx = u.valToPos(this._liveRpm, 'x', true);
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.setLineDash([2 * dpr, 3 * dpr]);
+      ctx.beginPath(); ctx.moveTo(rx, b.top + 2); ctx.lineTo(rx, b.top + b.height - 2); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // — Punto vivo en (RPM actual, torque actual) —
+      if (this._liveTorque > 0) {
+        var ry = u.valToPos(this._liveTorque, 'y', true);
+        var grd = ctx.createRadialGradient(rx, ry, 0, rx, ry, 8 * dpr);
+        grd.addColorStop(0,   'rgba(255,170,0,0.55)');
+        grd.addColorStop(1,   'rgba(255,170,0,0)');
+        ctx.fillStyle = grd;
+        ctx.beginPath(); ctx.arc(rx, ry, 8 * dpr, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,170,0,1)';
+        ctx.beginPath(); ctx.arc(rx, ry, 4.5 * dpr, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // — Barra de carga (columna delgada en padding izquierdo, verde→ámbar) —
+    if (this._liveLoad > 0) {
+      var barH = (this._liveLoad / 100) * b.height;
+      var gLoad = ctx.createLinearGradient(0, b.top + b.height, 0, b.top);
+      gLoad.addColorStop(0,    'rgba(168,255,62,0.90)');
+      gLoad.addColorStop(0.55, 'rgba(168,255,62,0.55)');
+      gLoad.addColorStop(1,    'rgba(255,170,0,0.75)');
+      ctx.fillStyle = gLoad;
+      ctx.fillRect(b.left - 10 * dpr, b.top + b.height - barH, 6 * dpr, barH);
+    }
+
+    ctx.restore();
   };
 
-  function rpmToX(rpm) {
-    var range = _maxRpm - _minRpm;
-    return range <= 0 ? 0 : Math.max(0, Math.min(W, ((rpm - _minRpm) / range) * W));
-  }
-
-  function torqueToY(t) {
-    return H - (Math.max(0, Math.min(t, _maxTorque)) / _maxTorque) * H;
-  }
-
-  function toScreen(dataPts) {
-    return dataPts.map(function(p) { return { x: rpmToX(p.rpm), y: torqueToY(p.torque) }; });
-  }
-
-  /** Catmull-Rom → Cubic Bézier: curva suave que pasa por todos los puntos */
-  function smoothPath(sc) {
-    if (!sc.length) return '';
-    var d = 'M' + sc[0].x.toFixed(1) + ',' + sc[0].y.toFixed(1);
-    if (sc.length < 3) {
-      for (var k = 1; k < sc.length; k++) d += ' L' + sc[k].x.toFixed(1) + ',' + sc[k].y.toFixed(1);
-      return d;
-    }
-    for (var i = 0; i < sc.length - 1; i++) {
-      var p0 = sc[Math.max(0, i - 1)];
-      var p1 = sc[i];
-      var p2 = sc[i + 1];
-      var p3 = sc[Math.min(sc.length - 1, i + 2)];
-      var cp1x = p1.x + (p2.x - p0.x) / 12;
-      var cp1y = p1.y + (p2.y - p0.y) / 12;
-      var cp2x = p2.x - (p3.x - p1.x) / 12;
-      var cp2y = p2.y - (p3.y - p1.y) / 12;
-      d += ' C' + cp1x.toFixed(1) + ',' + cp1y.toFixed(1) + ' ' +
-                  cp2x.toFixed(1) + ',' + cp2y.toFixed(1) + ' ' +
-                  p2.x.toFixed(1) + ',' + p2.y.toFixed(1);
-    }
-    return d;
-  }
-
-  function buildLine(dataPts) { return smoothPath(toScreen(dataPts)); }
-
-  function buildArea(dataPts) {
-    var sc = toScreen(dataPts);
-    if (sc.length < 2) return '';
-    return smoothPath(sc) +
-      ' L' + sc[sc.length - 1].x.toFixed(1) + ',' + H +
-      ' L' + sc[0].x.toFixed(1) + ',' + H + ' Z';
-  }
-
-  function el(id) { return document.getElementById(id); }
+  /** Crea la instancia uPlot sobre el contenedor dado */
+  DynoChart.prototype._initUplot = function(container) {
+    var self = this;
+    var w    = container.offsetWidth  || 280;
+    var h    = container.offsetHeight || 160;
+    var opts = {
+      width:  w,
+      height: h,
+      cursor: { show: false },
+      legend: { show: false },
+      select: { show: false },
+      scales: {
+        x: { time: false, range: [600, 3000] },
+        y: { range: [0, 1000] },
+      },
+      axes: [{ show: false }, { show: false }],
+      series: [
+        {},
+        { // Par máximo — ámbar
+          stroke: 'rgba(255,170,0,0.90)',
+          fill: function(u) {
+            var bb = u.bbox;
+            var g  = u.ctx.createLinearGradient(0, bb.top, 0, bb.top + bb.height);
+            g.addColorStop(0,   'rgba(255,170,0,0.28)');
+            g.addColorStop(1,   'rgba(255,170,0,0.02)');
+            return g;
+          },
+          width: 2.5,
+          spanGaps: true,
+        },
+        { // Par aplicado — teal
+          stroke: 'rgba(0,229,204,0.90)',
+          fill: function(u) {
+            var bb = u.bbox;
+            var g  = u.ctx.createLinearGradient(0, bb.top, 0, bb.top + bb.height);
+            g.addColorStop(0,   'rgba(0,229,204,0.18)');
+            g.addColorStop(1,   'rgba(0,229,204,0.01)');
+            return g;
+          },
+          width: 2,
+          spanGaps: true,
+        },
+      ],
+      padding: [4, 4, 4, 16],
+      hooks: {
+        draw: [function(u) { self._drawOverlay(u); }],
+      },
+    };
+    this._uplot = new uPlot(opts, [[], [null], [null]], container);
+  };
 
   DynoChart.prototype.render = function(vehicleName, currentRpm, currentTorque, currentMaxTorque, mrBandMin, mrBandMax, mrPeakRpm, mrEcoRpm) {
-    // Throttle a 8fps (125ms): _computeScales + Object.keys + Catmull-Rom + 15 DOM attrs en cada frame es costoso
+    // Throttle a 60fps (17ms): canvas uPlot es suficientemente ligero para ello
     var now = Date.now();
-    if (now - this._lastRenderMs < 125) return;
+    if (now - this._lastRenderMs < 17) return;
     this._lastRenderMs = now;
 
-    this._computeScales(vehicleName);
-
-    var data       = this._getPoints(vehicleName);
-    var maxPts     = data.maxPts;
-    var appliedPts = data.appliedPts;
-
-    var badge = el('dyno-vehicle-name');
-    if (badge) badge.textContent = vehicleName || '—';
-
-    // Áreas de relleno y curvas
-    var maEl = el('dyno-max-area');     if (maEl) maEl.setAttribute('d', buildArea(maxPts));
-    var aaEl = el('dyno-app-area');     if (aaEl) aaEl.setAttribute('d', buildArea(appliedPts));
-    var mxEl = el('dyno-torque-path'); if (mxEl) mxEl.setAttribute('d', buildLine(maxPts));
-    var apEl = el('dyno-applied-path');if (apEl) apEl.setAttribute('d', buildLine(appliedPts));
-
-    // Línea vertical en RPM actual
-    var cX = rpmToX(currentRpm).toFixed(1);
-    var cY = torqueToY(currentTorque).toFixed(1);
-    var rLine = el('dyno-rpm-line');
-    if (rLine && currentRpm > 0) {
-      rLine.setAttribute('x1', cX); rLine.setAttribute('x2', cX);
-      rLine.setAttribute('opacity', '1');
+    // Inicialización perezosa — el DOM ya está listo en el primer frame de telemetría
+    if (!this._uplot) {
+      var wrap = document.getElementById('dyno-canvas-wrap');
+      if (!wrap) return;
+      this._initUplot(wrap);
     }
 
-    // Punto vivo
-    var dot = el('dyno-live-dot');
-    if (dot && currentRpm > 0) {
-      dot.setAttribute('cx', cX); dot.setAttribute('cy', cY);
-      dot.setAttribute('opacity', '1');
-    }
-
-    // Barra de carga izquierda (verde, altura proporcional al load%)
+    // Actualizar estado de overlay (leído dentro de hooks.draw)
+    this._liveRpm    = currentRpm    || 0;
+    this._liveTorque = currentTorque || 0;
+    this._mrBandMin  = mrBandMin     || 0;
+    this._mrBandMax  = mrBandMax     || 0;
+    this._mrEcoRpm   = mrEcoRpm      || 0;
+    this._mrPeakRpm  = mrPeakRpm     || 0;
     var loadPct = currentMaxTorque > 0 && currentTorque > 0
       ? Math.min(100, (currentTorque / currentMaxTorque) * 100) : 0;
-    var barH = (loadPct / 100) * H;
-    var lb = el('dyno-load-bar');
-    if (lb) {
-      lb.setAttribute('y', (H - barH).toFixed(1));
-      lb.setAttribute('height', barH.toFixed(1));
+    this._liveLoad = loadPct;
+
+    // Escalas dinámicas
+    var minRpm = 600, maxRpm = 3000, maxTorque = 1000;
+    if (vehicleName && this.curves[vehicleName]) {
+      this._ensureVehicle(vehicleName);
+      var c = this.curves[vehicleName];
+      var allKeys = Object.keys(c.max).concat(Object.keys(c.applied)).map(Number);
+      if (allKeys.length) {
+        var minKey = Math.min.apply(null, allKeys);
+        var maxKey = Math.max.apply(null, allKeys);
+        var pad = Math.max((maxKey - minKey) * 0.05, 50);
+        minRpm = Math.max(0, Math.floor((minKey - pad) / 100) * 100);
+        maxRpm =             Math.ceil( (maxKey + pad) / 100) * 100;
+        var allTorques = [];
+        Object.keys(c.max).forEach(function(k) { allTorques.push(c.max[k]); });
+        Object.keys(c.applied).forEach(function(k) { allTorques.push(c.applied[k]); });
+        maxTorque = Math.max(Math.ceil(Math.max.apply(null, allTorques) * 1.15 / 100) * 100, 100);
+      }
     }
 
-    // --- Zona de potencia MoreRealistic ---
+    // Actualizar datos + escalas en un batch → un solo redibujado (invoca hooks.draw)
+    var udata = this._buildUdata(vehicleName);
+    var self  = this;
+    this._uplot.batch(function(u) {
+      u.setData(udata, false);
+      u.setScale('x', { min: minRpm, max: maxRpm });
+      u.setScale('y', { min: 0,      max: maxTorque });
+    });
+
+    // Badge vehículo
+    var badge = document.getElementById('dyno-vehicle-name');
+    if (badge) badge.textContent = vehicleName || '—';
+
+    // Etiquetas RPM
+    var minL = document.getElementById('dyno-rpm-min-label');
+    if (minL) minL.textContent = Math.round(minRpm) + ' rpm';
+    var maxL = document.getElementById('dyno-rpm-max-label');
+    if (maxL) maxL.textContent = Math.round(maxRpm) + ' rpm';
+
+    // Leyenda MR
     var hasMrBand = mrBandMin > 0 && mrBandMax > mrBandMin;
-    var pbRect = el('dyno-power-band');
-    var ecoLine = el('dyno-eco-line');
-    var peakLine = el('dyno-peak-line');
-    var mrLegend = el('dyno-mr-legend');
-
-    if (hasMrBand && pbRect) {
-      var bX1 = rpmToX(mrBandMin);
-      var bX2 = rpmToX(mrBandMax);
-      pbRect.setAttribute('x', bX1.toFixed(1));
-      pbRect.setAttribute('width', Math.max(0, bX2 - bX1).toFixed(1));
-      pbRect.setAttribute('opacity', '0.9');
-    } else if (pbRect) {
-      pbRect.setAttribute('width', '0');
-    }
-    if (ecoLine && mrEcoRpm > 0) {
-      var eX = rpmToX(mrEcoRpm).toFixed(1);
-      ecoLine.setAttribute('x1', eX); ecoLine.setAttribute('x2', eX);
-      ecoLine.setAttribute('opacity', '1');
-    } else if (ecoLine) { ecoLine.setAttribute('opacity', '0'); }
-    if (peakLine && mrPeakRpm > 0) {
-      var pX = rpmToX(mrPeakRpm).toFixed(1);
-      peakLine.setAttribute('x1', pX); peakLine.setAttribute('x2', pX);
-      peakLine.setAttribute('opacity', '1');
-    } else if (peakLine) { peakLine.setAttribute('opacity', '0'); }
+    var mrLegend = document.getElementById('dyno-mr-legend');
     if (mrLegend) mrLegend.style.display = hasMrBand ? '' : 'none';
 
-    // Etiquetas de RPM en eje inferior
-    var minL = el('dyno-rpm-min-label');
-    if (minL) minL.textContent = Math.round(_minRpm) + ' rpm';
-    var maxL = el('dyno-rpm-max-label');
-    if (maxL) maxL.textContent = Math.round(_maxRpm) + ' rpm';
-
-    // Meta inferior
-    var tv = el('dyno-torque-val'); if (tv) tv.textContent = Math.round(currentTorque    || 0);
-    var mv = el('dyno-max-val');    if (mv) mv.textContent = Math.round(currentMaxTorque || 0);
-    var rv = el('dyno-rpm-val');    if (rv) rv.textContent = Math.round(currentRpm       || 0);
-    var lv = el('dyno-load-val');
+    // Meta stats
+    var tv = document.getElementById('dyno-torque-val'); if (tv) tv.textContent = Math.round(currentTorque    || 0);
+    var mv = document.getElementById('dyno-max-val');    if (mv) mv.textContent = Math.round(currentMaxTorque || 0);
+    var rv = document.getElementById('dyno-rpm-val');    if (rv) rv.textContent = Math.round(currentRpm       || 0);
+    var lv = document.getElementById('dyno-load-val');
     if (lv) {
       lv.textContent = Math.round(loadPct) + '%';
       lv.className = loadPct >= 80 ? 'cs-lime' : loadPct >= 50 ? 'cs-amber' : 'cs-yellow';
@@ -260,7 +304,6 @@ class Dashboard {
     this.telemetryData = {};
     this.tractorWeight = 6.8;
     this.implementWeight = 1.2;
-    this.historyManager = new DashboardHistoryManager();
     this.dynoChart = new DynoChart();
 
     this.initializeModules();
@@ -279,7 +322,6 @@ class Dashboard {
   updateTelemetry(data) {
     try {
       Object.assign(this.telemetryData, data);
-      this.historyManager.recordHistoryPoint(data);
 
       this.updateConnectionBadge(data);
       this.updateCenterGauge(data);
@@ -290,7 +332,6 @@ class Dashboard {
       this.updateEfficiencyZones(data);
       this.updateGearAdvice(data);
       this.updateIATab(data);
-      this.historyManager.renderHistoryCharts();
     } catch (error) {
       console.error('Error en updateTelemetry:', error);
     }
@@ -301,10 +342,10 @@ class Dashboard {
     var dotEl = document.querySelector('.status-dot');
 
     if (data.isRealData) {
-      if (statusEl) statusEl.innerHTML = '🟢 FS25 CONECTADO';
+      if (statusEl) statusEl.textContent = '🟢 FS25 CONECTADO';
       if (dotEl) dotEl.classList.add('connected');
     } else {
-      if (statusEl) statusEl.innerHTML = '🔴 Esperando FS25...';
+      if (statusEl) statusEl.textContent = '🔴 Esperando FS25...';
       if (dotEl) dotEl.classList.remove('connected');
     }
   }
@@ -364,7 +405,6 @@ class Dashboard {
     var rpm         = data.engineSpeed || 0;
     var torque      = data.motorTorque || 0;
     var maxTorque   = data.maxTorqueNm || 0;  // 0 = sin datos; render() muestra carga 0% en lugar de 100%
-    var power       = data.powerKW || (torque && rpm ? (torque * rpm) / 9549 : 0);
     var mrBandMin   = data.mrPowerBandMinRpm || 0;
     var mrBandMax   = data.mrPowerBandMaxRpm || 0;
     var mrPeakRpm   = data.mrPeakPowerRpm   || 0;
@@ -893,11 +933,11 @@ class Dashboard {
       wrkEl.className = 'ia-badge' + (wk ? ' active' : '');
     }
 
-    // Estado grabación: activo cuando implement lowered + working
+    // Estado grabación: activo cuando implement lowered + vehículo en movimiento
+    // (igual que el logger del backend); se iza antes del bloque para reutilizar abajo
+    var recording = data.implementLowered && Math.abs(data.speed || 0) > 0.3;
     var recEl = document.getElementById('ia-rec-status');
     if (recEl) {
-      // Graba cuando implement bajado + vehículo en movimiento (igual que el logger del backend)
-      var recording = data.implementLowered && Math.abs(data.speed || 0) > 0.3;
       if (recording) {
         recEl.textContent  = 'GRABANDO';
         recEl.className    = 'ia-badge active';
@@ -938,8 +978,7 @@ class Dashboard {
     }
 
     // Contador de muestras grabadas en esta sesión
-    var recording2 = data.implementLowered && Math.abs(data.speed || 0) > 0.3;
-    if (recording2) {
+    if (recording) {
       window._iaSampleCount = (window._iaSampleCount || 0) + 1;
     }
     var scEl = document.getElementById('ia-sample-count');

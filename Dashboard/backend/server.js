@@ -313,7 +313,7 @@ httpServer.listen(SOCKET_IO_PORT, '0.0.0.0', () => {
   logger.info(`✓ HTTP/WebSocket escuchando en: http://localhost:${SOCKET_IO_PORT}`);
   logger.info(`✓ Socket.io namespace: /telemetry`);
   logger.info(`✓ Servidor TCP esperando SHTelemetry: localhost:9000`);
-  logger.info(`✓ Update frequency: ${process.env.UPDATE_FREQUENCY_MS}ms (${Math.round(1000 / process.env.UPDATE_FREQUENCY_MS)} FPS)`);
+  logger.info(`✓ Update frequency: ${process.env.UPDATE_FREQUENCY_MS}ms (${Math.round(1000 / (parseInt(process.env.UPDATE_FREQUENCY_MS) || 50))} FPS)`);
   logger.info(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`═════════════════════════════════════════════════════`);
   logger.info(`📍 Dashboard en: http://localhost:${SOCKET_IO_PORT}`);

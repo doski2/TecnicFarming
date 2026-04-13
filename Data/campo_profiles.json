@@ -15,14 +15,14 @@
   "27_HARVESTER": {
     "campo": 27,
     "workType": "HARVESTER",
-    "sessions": 5,
-    "total_samples": 4586,
+    "sessions": 7,
+    "total_samples": 6413,
     "recommended_accelerator": 25.4,
-    "avg_motor_load": 65.3,
+    "avg_motor_load": 65.7,
     "avg_speed_kmh": 3.3,
-    "avg_fuel_lh": 34.8,
+    "avg_fuel_lh": 35.0,
     "avg_rpm": 2200,
-    "last_updated": "2026-04-12",
+    "last_updated": "2026-04-13",
     "last_vehicle": "MR Massey Ferguson MF 8570"
   }
 }

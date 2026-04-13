@@ -112,7 +112,7 @@ class UIUpdater {
     // Glow on health card
     const healthCards = document.querySelectorAll('.health-card');
     healthCards.forEach(card => {
-      const health = Math.max(0, 100 - (metrics.tractorDamage || 0));
+      const health = Math.max(0, 100 - (metrics.vehicleWearAmount || 0) * 100);
       
       if (health < 30) {
         card.style.borderColor = 'rgba(255,68,102,0.5)';
@@ -134,15 +134,11 @@ class UIUpdater {
     const metrics = window.dashboard?.telemetryData;
     if (!metrics) return;
 
-    // Pulse status headers based on engine load
-    const cardTitles = document.querySelectorAll('.card-title');
-    cardTitles.forEach(title => {
-      if (metrics.motorLoad > 80) {
-        title.style.animation = 'blink 0.5s ease-in-out infinite';
-      } else {
-        title.style.animation = 'none';
-      }
-    });
+    // Pulse engine card title based on engine load
+    const engineCardTitle = document.querySelector('#engine-load')?.closest('.card')?.querySelector('.card-title');
+    if (engineCardTitle) {
+      engineCardTitle.style.animation = metrics.motorLoad > 80 ? 'blink 0.5s ease-in-out infinite' : 'none';
+    }
   }
 
   /**

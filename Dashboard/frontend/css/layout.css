@@ -132,19 +132,12 @@
 }
 
 /* Card del dinamómetro: crece para llenar el espacio libre de col-center */
-.panel-surface:has(#dyno-svg) {
+.panel-surface:has(#dyno-canvas-wrap) {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  overflow: visible; /* permite que el contenido interior declare su flex-grow */
-}
-/* .card interno del dynamometer también debe ser flex-column para propagar altura */
-.panel-surface:has(#dyno-svg).card {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* mantiene el clip de bordes pero propaga altura a los hijos flex */
   min-height: 0;    /* necesario para que flex:1 funcione dentro de un flex child */
+  overflow: hidden; /* clip de bordes + propaga altura a los hijos flex */
 }
 
 /* col-center solo tiene tachometer + dynamometer — no necesita scroll;
