@@ -8,8 +8,10 @@ import json
 import os
 import datetime
 
-def _save_profile(result, profiles_path):
-    """Guarda/actualiza el perfil acumulado de campo+workType (promedio ponderado)."""
+def _save_profile(result, profiles_path, source_file=None):
+    """Guarda/actualiza el perfil acumulado de campo+workType (promedio ponderado).
+    Si source_file ya fue procesado anteriormente, devuelve el perfil existente sin modificarlo.
+    """
     campo     = result.get('campo')
     work_type = result.get('work_type', 'UNKNOWN')
     n         = result.get('samples', 0)
@@ -19,6 +21,7 @@ def _save_profile(result, profiles_path):
         return None
 
     key = '{}_{}'.format(campo, work_type)
+    file_id = os.path.basename(source_file) if source_file else None
 
     # Leer perfiles existentes
     profiles = {}
@@ -29,8 +32,14 @@ def _save_profile(result, profiles_path):
         except (json.JSONDecodeError, IOError):
             profiles = {}
 
-    old   = profiles.get(key, {})
-    old_n = old.get('total_samples', 0)
+    old = profiles.get(key, {})
+
+    # Deduplicación: si este archivo ya fue procesado, devolver el perfil sin cambios
+    analyzed_files = old.get('analyzed_files', [])
+    if file_id and file_id in analyzed_files:
+        return old
+
+    old_n   = old.get('total_samples', 0)
     total_n = old_n + n
 
     # Promedio ponderado para métricas continuas
@@ -40,6 +49,10 @@ def _save_profile(result, profiles_path):
         ov = old_val if old_val is not None else 0
         nv = new_val if new_val is not None else 0
         return round((ov * old_n + nv * n) / total_n, 1) if total_n > 0 else nv
+
+    # Registrar este archivo para evitar contarlo de nuevo
+    if file_id:
+        analyzed_files = analyzed_files + [file_id]
 
     merged = {
         'campo':                   campo,
@@ -53,6 +66,7 @@ def _save_profile(result, profiles_path):
         'avg_rpm':                 int(wmean(old.get('avg_rpm'),             result.get('avg_rpm')) or 0),
         'last_updated':            datetime.date.today().isoformat(),
         'last_vehicle':            result.get('vehicle', '—'),
+        'analyzed_files':          analyzed_files,
     }
 
     profiles[key] = merged
@@ -204,7 +218,7 @@ def analyze(filepath):
     profiles_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), '..', 'Data', 'campo_profiles.json'
     )
-    result['profile'] = _save_profile(result, profiles_path)
+    result['profile'] = _save_profile(result, profiles_path, source_file=filepath)
 
     print(json.dumps(result, ensure_ascii=False))
 
