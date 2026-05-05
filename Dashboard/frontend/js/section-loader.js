@@ -74,10 +74,10 @@
 
       window.dashboardSectionsReady = true;
 
-      // Poblar select de campos (1–99) y notificar al backend al cambiar
+      // Poblar select de campos (1–38 Alma Missouri) y notificar al backend al cambiar
       var campoSelect = document.getElementById('ia-campo-id');
       if (campoSelect) {
-        for (var i = 1; i <= 99; i++) {
+        for (var i = 1; i <= 38; i++) {
           var opt = document.createElement('option');
           opt.value = i;
           opt.textContent = 'Campo ' + i;

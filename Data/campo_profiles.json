@@ -2,17 +2,37 @@
   "27_HARVESTER": {
     "campo": 27,
     "workType": "HARVESTER",
-    "sessions": 1,
-    "total_samples": 523,
+    "sessions": 4,
+    "total_samples": 2215,
     "recommended_accelerator": 25.3,
-    "avg_motor_load": 65.7,
-    "avg_speed_kmh": 3.4,
-    "avg_fuel_lh": 35.1,
-    "avg_rpm": 2198,
-    "last_updated": "2026-04-19",
+    "avg_motor_load": 64.5,
+    "avg_speed_kmh": 3.3,
+    "avg_fuel_lh": 34.8,
+    "avg_rpm": 2197,
+    "last_updated": "2026-04-25",
     "last_vehicle": "MR Massey Ferguson MF 8570",
     "analyzed_files": [
-      "2026-04-19_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl"
+      "2026-04-19_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl",
+      "2026-04-25_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl",
+      "2026-04-21_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl",
+      "2026-04-22_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl"
+    ]
+  },
+  "29_HARVESTER": {
+    "campo": 29,
+    "workType": "HARVESTER",
+    "sessions": 2,
+    "total_samples": 1109,
+    "recommended_accelerator": 25.5,
+    "avg_motor_load": 69.3,
+    "avg_speed_kmh": 3.3,
+    "avg_fuel_lh": 36.4,
+    "avg_rpm": 2195,
+    "last_updated": "2026-05-05",
+    "last_vehicle": "MR Massey Ferguson MF 8570",
+    "analyzed_files": [
+      "2026-05-04_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl",
+      "2026-05-05_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl"
     ]
   }
 }
