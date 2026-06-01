@@ -14,6 +14,8 @@
     './js/telemetry-client.js',
     './js/modules/dashboard-clock.js',
     './js/modules/dashboard-terrain.js',
+    './js/modules/dyno-chart.js',
+    './js/modules/ia-analysis.js',
     './js/ui-updater.js',
     './js/dashboard.js'
   ];

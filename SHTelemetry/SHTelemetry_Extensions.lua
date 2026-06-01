@@ -84,8 +84,9 @@ local function detectWorkType(obj)
 	if obj.spec_combine           ~= nil then return "HARVESTER"  end
 	if obj.spec_cutter            ~= nil then return "HARVESTER"  end
 	-- SEMBRADORAS / SEMBRADORAS DE PRECISION
-	if obj.spec_sowingMachine     ~= nil then return "SOWER"      end
-	if obj.spec_directSowingMachine ~= nil then return "SOWER"   end
+	if obj.spec_sowingMachine            ~= nil then return "SOWER" end
+	if obj.spec_directSowingMachine      ~= nil then return "SOWER" end
+	if obj.spec_fertilizingSowingMachine ~= nil then return "SOWER" end
 	-- ABONADORAS / ESPARCIDORES
 	if obj.spec_sprayer           ~= nil then return "SPRAYER"    end
 	if obj.spec_fertilizer        ~= nil then return "FERTILIZER" end
@@ -118,97 +119,129 @@ function SHTelemetry:captureWorkData(vehicle, telemetry)
 	telemetry.implementWorking = false
 	telemetry.workType         = "UNKNOWN"
 
-	-- Buscar implementos acoplados
+	-- Prioridad de tipo de trabajo: el implemento con mayor prioridad se usa
+	-- para grabar aunque haya varios enganchados (p.ej. contrapeso frontal + sembradora).
+	local typePriority = {
+		HARVESTER = 10, SOWER = 9, CULTIVATOR = 8, PLOW = 7,
+		MOWER = 6, BALER = 6, SPRAYER = 5, FERTILIZER = 4, FIELDWORK = 3, TRANSPORT = 2
+	}  -- UNKNOWN = 0 (no en tabla)
+
+	-- Función local: capturar datos de un objeto-implemento concreto hacia telemetry
+	local function captureImplData(impl)
+		-- Nombre del implemento
+		local fullName = ""
+		if impl.getFullName ~= nil then fullName = impl:getFullName() or "" end
+		if fullName == "" and impl.getName ~= nil then fullName = impl:getName() or "" end
+		telemetry.implementName = fullName
+
+		-- Tipo de trabajo
+		telemetry.workType = detectWorkType(impl)
+
+		-- DEBUG (sólo en desarrollo): listar specs del implemento al log
+		-- Para activar: cambiar false a true
+		if false then
+			local specList = ""
+			for k, _ in pairs(impl) do
+				if type(k) == "string" and k:sub(1,5) == "spec_" then
+					specList = specList .. k .. ","
+				end
+			end
+			log("SHTelemetry impl specs: " .. specList)
+		end
+
+		-- Lowered: usar getIsLowered() del SDK (vía jointDesc.moveDown del attacher joint)
+		if impl.getIsLowered ~= nil then
+			telemetry.implementLowered = impl:getIsLowered(true)
+		else
+			-- Sin método getIsLowered → asumir siempre bajado (p.ej. pesos frontales)
+			telemetry.implementLowered = true
+		end
+
+		-- Fallback si getIsLowered() retorna false: usar spec_foldable.foldAnimTime.
+		-- SDK Foldable.lua: foldAnimTime ∈ [0,1]; posición trabajo = extremo completado.
+		-- En posición transporte la animación está en curso o en zona media (0.1–0.9).
+		-- Se aplica a cualquier implemento de campo (no TRANSPORT/UNKNOWN).
+		if not telemetry.implementLowered then
+			local wt = telemetry.workType
+			if wt ~= "TRANSPORT" and wt ~= "UNKNOWN" then
+				local sf = impl.spec_foldable
+				if sf ~= nil then
+					-- Trabajo = animación completa en cualquiera de los dos extremos
+					local anim = sf.foldAnimTime
+					if anim == nil or anim < 0.1 or anim > 0.9 then
+						telemetry.implementLowered = true
+					end
+				else
+					-- Sin spec_foldable → bajado si el vehículo se mueve
+					telemetry.implementLowered = (telemetry.speedKmh ~= nil and telemetry.speedKmh > 0.3)
+				end
+			end
+		end
+
+		-- Working: specs que exponen isWorking directamente en el implemento
+		local working = false
+		local specNames = {"spec_cultivator", "spec_plow", "spec_mower",
+		                   "spec_cutter", "spec_sowingMachine",
+		                   "spec_fertilizingSowingMachine", "spec_sprayer"}
+		for _, sn in ipairs(specNames) do
+			local sp = impl[sn]
+			if sp ~= nil and sp.isWorking ~= nil then
+				working = sp.isWorking
+				break
+			end
+		end
+
+		-- Para cosechadoras: spec_combine está en el VEHÍCULO, no en el cabezal
+		if not working and vehicle.spec_combine ~= nil then
+			if vehicle.spec_combine.isWorking ~= nil then
+				working = vehicle.spec_combine.isWorking
+			end
+		end
+
+		-- workArea isActive (puede funcionar en algunas versiones del juego)
+		if not working then
+			local specWork = impl.spec_workArea
+			if specWork ~= nil and specWork.workAreas ~= nil then
+				for _, wa in ipairs(specWork.workAreas) do
+					if wa.isActive then working = true; break end
+				end
+			end
+		end
+
+		-- Fallback final: bajado + vehículo moviéndose
+		if not working then
+			working = telemetry.implementLowered and
+			          (telemetry.speedKmh ~= nil and telemetry.speedKmh > 0.3)
+		end
+
+		telemetry.implementWorking = working
+	end
+
+	-- Buscar implementos acoplados y elegir el de mayor prioridad
 	-- SDK AttacherJoints.lua: spec.attachedImplements = {} (línea 458); implement.object ~= nil si hay acoplado
 	if vehicle.spec_attacherJoints ~= nil then
 		local attachedImplements = vehicle.spec_attacherJoints.attachedImplements
 		telemetry.implementsAttached = 0
 
 		if attachedImplements ~= nil then
+			local bestImpl = nil
+			local bestPrio = -1
+
 			for _, implement in ipairs(attachedImplements) do
 				if implement.object ~= nil then
 					telemetry.implementsAttached = telemetry.implementsAttached + 1
-
-					-- Capturar datos del PRIMER implemento encontrado
-					if telemetry.implementsAttached == 1 then
-					-- Nombre: getFullName() da el nombre de tienda; fallback a getName()
-					local fullName = ""
-					if implement.object.getFullName ~= nil then
-						fullName = implement.object:getFullName() or ""
-					end
-					if fullName == "" and implement.object.getName ~= nil then
-						fullName = implement.object:getName() or ""
-					end
-					telemetry.implementName = fullName
-
-					-- Tipo de trabajo detectado
-					telemetry.workType = detectWorkType(implement.object)
-
-					-- DEBUG (sólo en desarrollo): listar specs del implemento al log
-					-- Para activar: cambiar false a true
-					if false then
-						local specList = ""
-						for k, _ in pairs(implement.object) do
-							if type(k) == "string" and k:sub(1,5) == "spec_" then
-								specList = specList .. k .. ","
-							end
-						end
-						log("SHTelemetry impl specs: " .. specList)
-					end
--- Lowered: usar getIsLowered() del SDK (vía jointDesc.moveDown del attacher joint)
-					-- Es más fiable que spec_foldable.isFolded, que no refleja la posición hidráulica real
-					if implement.object.getIsLowered ~= nil then
-						telemetry.implementLowered = implement.object:getIsLowered(true)
-					else
-						-- Sin método getIsLowered → siempre bajado (p.ej. pesos frontales)
-							telemetry.implementLowered = true
-						end
-
-						-- Working: spec_workArea.workAreas no es fiable en FS25 (isActive rara vez cambia).
-						-- Detección prioritaria: specs específicas con campo isWorking.
-						-- Fallback robusto: implemento bajado + vehículo en movimiento.
-						local working = false
-
-						-- Intento 1: specs que exponen isWorking directamente en el implemento
-						local specNames = {"spec_cultivator", "spec_plow", "spec_mower",
-						                   "spec_cutter", "spec_sowingMachine", "spec_sprayer"}
-						for _, sn in ipairs(specNames) do
-							local sp = implement.object[sn]
-							if sp ~= nil and sp.isWorking ~= nil then
-								working = sp.isWorking
-								break
-							end
-						end
-
-						-- Para cosechadoras: spec_combine está en el VEHÍCULO, no en el cabezal
-						if not working and vehicle.spec_combine ~= nil then
-							if vehicle.spec_combine.isWorking ~= nil then
-								working = vehicle.spec_combine.isWorking
-							end
-						end
-
-						-- Intento 2: workArea isActive (puede funcionar en algunas versiones)
-						if not working then
-							local specWork = implement.object.spec_workArea
-							if specWork ~= nil and specWork.workAreas ~= nil then
-								for _, wa in ipairs(specWork.workAreas) do
-									if wa.isActive then
-										working = true
-										break
-									end
-								end
-							end
-						end
-
-						-- Fallback: implemento bajado + vehículo moviéndose (> 0.3 km/h)
-						if not working then
-							working = telemetry.implementLowered and
-							          (telemetry.speedKmh ~= nil and telemetry.speedKmh > 0.3)
-						end
-
-						telemetry.implementWorking = working
+					local wt   = detectWorkType(implement.object)
+					local prio = typePriority[wt] or 0
+					if prio > bestPrio then
+						bestPrio = prio
+						bestImpl = implement.object
 					end
 				end
+			end
+
+			-- Capturar datos del implemento de mayor prioridad (o único disponible)
+			if bestImpl ~= nil then
+				captureImplData(bestImpl)
 			end
 		end
 	end
