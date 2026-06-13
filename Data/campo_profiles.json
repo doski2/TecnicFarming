@@ -21,38 +21,63 @@
   "29_HARVESTER": {
     "campo": 29,
     "workType": "HARVESTER",
-    "sessions": 2,
-    "total_samples": 1109,
+    "sessions": 3,
+    "total_samples": 1232,
     "recommended_accelerator": 25.5,
-    "avg_motor_load": 69.3,
+    "avg_motor_load": 69.0,
     "avg_speed_kmh": 3.3,
-    "avg_fuel_lh": 36.4,
-    "avg_rpm": 2195,
-    "last_updated": "2026-05-05",
+    "avg_fuel_lh": 36.3,
+    "avg_rpm": 2194,
+    "last_updated": "2026-06-13",
     "last_vehicle": "MR Massey Ferguson MF 8570",
     "analyzed_files": [
       "2026-05-04_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl",
-      "2026-05-05_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl"
+      "2026-05-05_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl",
+      "2026-05-12_MR_Massey_Ferguson_MF_8570_HARVESTER.jsonl"
     ]
   },
   "3_SOWER": {
     "campo": 3,
     "workType": "SOWER",
-    "sessions": 5,
-    "total_samples": 3468,
-    "recommended_accelerator": 70.3,
-    "avg_motor_load": 54.0,
-    "avg_speed_kmh": 9.2,
-    "avg_fuel_lh": 23.8,
+    "sessions": 6,
+    "total_samples": 3798,
+    "recommended_accelerator": 71.6,
+    "avg_motor_load": 55.4,
+    "avg_speed_kmh": 9.5,
+    "avg_fuel_lh": 24.3,
     "avg_rpm": 1842,
-    "last_updated": "2026-05-28",
+    "last_updated": "2026-06-13",
     "last_vehicle": "CLAAS AXION 800",
     "analyzed_files": [
       "2026-05-18_CLAAS_AXION_800_SOWER.jsonl",
       "2026-05-19_CLAAS_AXION_800_SOWER.jsonl",
       "2026-05-25_CLAAS_AXION_800_SOWER.jsonl",
       "2026-05-26_CLAAS_AXION_800_SOWER.jsonl",
-      "2026-05-27_CLAAS_AXION_800_SOWER.jsonl"
+      "2026-05-27_CLAAS_AXION_800_SOWER.jsonl",
+      "2026-05-28_CLAAS_AXION_800_SOWER.jsonl"
+    ]
+  },
+  "13_HARVESTER": {
+    "campo": 13,
+    "workType": "HARVESTER",
+    "sessions": 8,
+    "total_samples": 7450,
+    "recommended_accelerator": 79.8,
+    "avg_motor_load": 74.6,
+    "avg_speed_kmh": 8.0,
+    "avg_fuel_lh": 14.9,
+    "avg_rpm": 1800,
+    "last_updated": "2026-06-13",
+    "last_vehicle": "MF 8570",
+    "analyzed_files": [
+      "tmp98foxkpg.jsonl",
+      "tmpzst_oot9.jsonl",
+      "tmpk5i2xq9w.jsonl",
+      "tmp6mw8j45j.jsonl",
+      "tmpdsacpz5p.jsonl",
+      "tmpmgu32gju.jsonl",
+      "tmp9sia042b.jsonl",
+      "tmpp8vyfgo_.jsonl"
     ]
   }
 }

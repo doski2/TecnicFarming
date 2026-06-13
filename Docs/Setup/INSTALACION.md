@@ -10,8 +10,8 @@
 
 ### Mods Requeridos
 
-- FSTelemetry (para extracción de datos)
-- MoreRealistic_FS25 (recomendado para datos precisos)
+- **SHTelemetry** (mod incluido en este repo — extracción de datos via Named Pipe)
+- **MoreRealistic_FS25** (recomendado para torque, consumo y bandas de potencia precisas)
 
 ## 🚀 Instalación Paso a Paso
 
@@ -62,13 +62,14 @@ SOCKET_IO_PORT=8080
 NAMED_PIPE_NAME=\\\\.\\pipe\\SHTelemetry
 ```
 
-### 5. Confirmar FSTelemetry en el Juego
+### 5. Confirmar SHTelemetry en el Juego
 
-1. Abre Farming Simulator 2025
-2. Ve a Configuración → Mods
-3. Activa:
-   - ✅ FSTelemetry
-   - ✅ MoreRealistic_FS25
+1. Copia la carpeta `SHTelemetry/` a la carpeta de mods de FS25
+2. Abre Farming Simulator 2025
+3. Ve a Configuración → Mods
+4. Activa:
+   - ✅ SHTelemetry
+   - ✅ MoreRealistic_FS25 (opcional pero recomendado)
 
 ### 6. Iniciar el Servidor Backend
 
@@ -98,10 +99,11 @@ O ejecuta `start.bat` desde la raíz del proyecto (inicia el backend y abre el n
 - [ ] Node.js instalado (`node --version` muestra versión)
 - [ ] `npm install` completó sin errores
 - [ ] Archivo `.env` creado
-- [ ] Mods FSTelemetry activos en FS25
+- [ ] Mod SHTelemetry activo en FS25
 - [ ] Servidor Backend en ejecución (`npm start`)
 - [ ] Dashboard abierto en navegador
 - [ ] Datos en vivo aparecen en el dashboard
+- [ ] `run_tests.bat` pasa los 58 tests (opcional pero recomendado)
 
 ### Solucionar Problemas
 
@@ -109,14 +111,23 @@ O ejecuta `start.bat` desde la raíz del proyecto (inicia el backend y abre el n
 → Instala Node.js desde <https://nodejs.org/>
 
 **Error: "Named Pipe no disponible"**
-→ Confirma que SHTelemetry.lua o FSTelemetry.lua está activo
+→ Confirma que SHTelemetry está activo, o usa el simulador: `node Tests\mock_telemetry_provider.js`
 
 **Dashboard no actualiza datos**
 → Verifica logs en `Dashboard/backend/logs/` y revisa DevTools (F12)
+
+## 🧪 Validar instalación con tests
+
+```bat
+run_tests.bat
+```
+
+Deben pasar las 4 suites (58 tests). Ver **[TESTING.md](./TESTING.md)** para detalle.
 
 ## 📝 Próximo Paso
 
 Una vez instalado, consulta:
 
-- **[CONFIGURACION.md](./CONFIGURACION.md)** — Ajustes iniciales
-- **[ARQUITECTURA.md](../Architecture/ARQUITECTURA.md)** — Cómo funciona el sistema
+- **[GUIA_BACKEND.md](./GUIA_BACKEND.md)** — Configuración y monitoreo del backend
+- **[WEBSOCKET_INFO.md](./WEBSOCKET_INFO.md)** — Contrato de datos WebSocket
+- **[TESTING.md](./TESTING.md)** — Tests y simulador sin juego

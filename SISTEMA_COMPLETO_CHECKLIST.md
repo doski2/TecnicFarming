@@ -102,8 +102,20 @@ Todos los documentos accesibles:
 - [ ] `Docs/Setup/INSTALACION.md` — Pasos instalación
 - [ ] `Docs/Setup/GUIA_BACKEND.md` — Uso backend
 - [ ] `Docs/Setup/WEBSOCKET_INFO.md` — API WebSocket
+- [ ] `Docs/Setup/TESTING.md` — Suite de tests
 - [ ] `HERRAMIENTAS_RECOMENDADAS.md` — Stack tech
 - [ ] `ESTRUCTURA_PROYECTO.md` — Organización carpetas
+
+## ✅ Tests Automatizados
+
+```bat
+run_tests.bat
+```
+
+- [ ] Suite 1/4 — Backend (`npm test`) — 7 tests OK
+- [ ] Suite 2/4 — Frontend (`Tests/frontend_logic.test.js`) — 3 tests OK
+- [ ] Suite 3/4 — Telemetría (`Scripts/test_telemetry.js`) — 28 tests OK
+- [ ] Suite 4/4 — Análisis Python (`Scripts/test_analyze_session.py`) — 20 tests OK
 
 ## 🎯 Validación Final
 
@@ -111,12 +123,12 @@ Si todo está ✓, tu sistema está **LISTO PARA PRODUCCIÓN**
 
 ### Test rápido
 
-1. Cierra todo
+1. Ejecuta `run_tests.bat` — deben pasar los 58 tests
 2. Ejecuta `npm start` en `Dashboard/backend`
 3. Abre <http://localhost:8080>
 4. Abre F12 → Console
 5. Debe ver `✓ Conectado al servidor`
-6. Debe ver `📊 Datos actuales: RPM=...`
+6. Debe ver datos de telemetría en vivo (con FS25 o `mock_telemetry_provider.js`)
 
 ## 🐛 Si Hay Problemas
 
@@ -126,4 +138,4 @@ Si todo está ✓, tu sistema está **LISTO PARA PRODUCCIÓN**
 
 ---
 
-**Sistema validado en:** 17 de marzo de 2026
+**Sistema validado en:** 13 de junio de 2026

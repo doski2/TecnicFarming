@@ -54,8 +54,8 @@ En tu navegador:
 ### Console Output
 
 - `✓ Cliente conectado: ...` — WebSocket conectado
-- `🎬 MODO DEMO ACTIVO` — Sin Named Pipe (datos simulados)
-- `🔌 Conectando a Named Pipe` — Intentando leer FSTelemetry
+- `✓ Servidor escuchando en Named Pipe` — Esperando datos de SHTelemetry
+- `✓ SHTelemetry conectado a Named Pipe` — Datos reales del juego
 
 ### Chrome DevTools (F12)
 
@@ -82,7 +82,10 @@ SOCKET_IO_PORT=8081
 
 ### "Named Pipe no disponible"
 
-→ Dashboard funciona en **MODO DEMO** con datos simulados
+→ El backend sigue activo pero espera conexión. Opciones:
+
+1. Activa SHTelemetry en FS25 y entra en partida
+2. Usa el simulador: `node Tests\mock_telemetry_provider.js` (desde la raíz del proyecto)
 
 ### "npm: command not found"
 
@@ -122,7 +125,19 @@ El servidor envía datos como:
    ✓ Conectado al servidor de telemetría
    ✓ UIUpdater inicializado
 
+## 🧪 Tests del backend
+
+```bat
+cd Dashboard\backend
+npm test
+```
+
+Valida parseo JSON, EMA de masa, chunks parciales y mapeo de tracción. Para la suite completa (58 tests), ejecuta `run_tests.bat` desde la raíz.
+
+Ver **[TESTING.md](./TESTING.md)**.
+
 ## 🚀 Próximos Pasos
 
 - [ ] Confirmar datos en vivo en Dashboard
+- [ ] Ejecutar `run_tests.bat` tras cambios en `telemetry.js`
 - [ ] Revisar logs en `Dashboard/backend/logs/` si hay errores

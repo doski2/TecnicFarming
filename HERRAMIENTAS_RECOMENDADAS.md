@@ -125,9 +125,15 @@ socket.on('telemetry', (data) => {
 
 ### Backend (Node.js)
 
-├── Express.js - Servidor HTTP ligero
-├── Socket.io - WebSocket en tiempo real
-└── node-named-pipe - Leer pipe de FSTelemetry
+├── Express.js — Servidor HTTP + frontend estático
+├── Socket.io — WebSocket en tiempo real
+└── Node.js test runner — Tests en `Dashboard/backend/Tests/` y `Scripts/`
+
+### Testing
+
+├── `run_tests.bat` — 58 tests en 4 suites
+├── `Tests/mock_telemetry_provider.js` — Simulador sin FS25
+└── Python unittest — `Scripts/test_analyze_session.py`
 
 ### Frontend (Ya tienes, mejoras opcionales)
 
@@ -158,10 +164,10 @@ socket.on('telemetry', (data) => {
                      │ Named Pipe → Lectura
                      ↓
 ┌─────────────────────────────────────────────────────┐
-│  Node.js Backend (Puerto 3000)                      │
-│  - Lee Named Pipe                                   │
-│  - Compress con MessagePack                         │
-│  - Envía vía Socket.io cada 16.66ms (60 FPS)      │
+│  Node.js Backend (Puerto 8080)                      │
+│  - Escucha Named Pipe \\.\pipe\SHTelemetry          │
+│  - Graba sesiones JSONL en Data/sessions/           │
+│  - Envía vía Socket.io cada 16.66ms (60 FPS)       │
 └────────────────────┬────────────────────────────────┘
                      │ WebSocket
                      ↓
@@ -203,12 +209,15 @@ socket.on('telemetry', (data) => {
 
 ## 🚀 PLAN DE IMPLEMENTACIÓN
 
-### Fase 1 (ACTUAL)
+### Fase 1 (COMPLETADA)
 
 - [x] Dashboard HTML/CSS (Vanilla) ✅
 - [x] SVG Tachometer ✅
-- [x] **Conectar Backend Node.js → FSTelemetry** ✅
-- [x] **Implementar Socket.io WebSocket** ✅
+- [x] Backend Node.js → SHTelemetry (Named Pipe) ✅
+- [x] Socket.io WebSocket ✅
+- [x] Grabación de sesiones JSONL ✅
+- [x] Análisis Python (`analyze_session.py`) ✅
+- [x] Suite de tests automatizada (58 tests) ✅
 
 ### Fase 2
 
@@ -228,9 +237,9 @@ socket.on('telemetry', (data) => {
 
 **Para tu caso específico:**
 
-1. **Mantén lo que tienes** (Vanilla CSS/JS) - Va perfecto
-2. **Agrega Socket.io** en Backend (Node.js) - Crítico para datos en vivo
-3. **Opcionalmente Chart.js** - Solo si necesitas más gráficos complejos
-4. **Evita frameworks grandes** - Vue/React/Angular son overkill
+1. **Mantén lo que tienes** (Vanilla CSS/JS) — funciona bien
+2. **Socket.io + Named Pipe** — ya implementado y testeado
+3. **Opcionalmente Chart.js** — solo si necesitas más gráficos complejos
+4. **Ejecuta `run_tests.bat`** tras cambios en telemetría o gauges
 
-**Prioridad inmediata:** Crear servidor Node.js que lea FSTelemetry y envíe datos vía WebSocket al dashboard. Eso es lo que falta para tener datos reales en tiempo real.
+**Prioridad inmediata:** TensorFlow.js para recomendaciones IA (Fase 3) y optimización de payload con MessagePack.

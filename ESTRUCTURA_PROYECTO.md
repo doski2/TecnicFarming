@@ -21,7 +21,8 @@ TecnicFarming/
 |   |   |   +-- modules/
 |   |   |       +-- dashboard-clock.js    # Reloj superior
 |   |   |       +-- dashboard-terrain.js  # Pitch, roll, transformacion tractor
-|   |   |       +-- dashboard-history.js  # Buffer historico y graficos SVG
+|   |   |       +-- dyno-chart.js         # Grafico dinamometro (uPlot)
+|   |   |       +-- ia-analysis.js        # Analisis IA en panel
 |   |   +-- sections/                     # Fragmentos HTML cargados dinamicamente
 |   |   |   +-- topnav.html
 |   |   |   +-- col-left.html
@@ -42,20 +43,34 @@ TecnicFarming/
 |   +-- backend/
 |       +-- server.js                     # Express + Socket.io + Named Pipe
 |       +-- package.json
+|       +-- Tests/
+|       |   +-- telemetry.test.js         # Tests unitarios TelemetryService
 |       +-- src/
 |       |   +-- services/
-|       |       +-- telemetry.js          # Lectura Named Pipe y emision de datos
+|       |       +-- telemetry.js          # Lectura Named Pipe, parseo y logging
 |       +-- logs/
 |
 +-- SHTelemetry/                          # Mod telemetria SimHub (SHTelemetry.lua)
-+-- MoreRealistic_FS25-main/              # Mod fisica realista
++-- Scripts/                              # Analisis y tests de telemetria
+|   +-- analyze_session.py                # Procesa JSONL -> campo_profiles.json
+|   +-- test_telemetry.js                 # 28 tests de parseo y logging
+|   +-- test_analyze_session.py           # 20 tests del analizador
++-- Tests/                                # Tests frontend y simulador
+|   +-- frontend_logic.test.js            # Tests de gauge.js (3 tests)
+|   +-- mock_telemetry_provider.js        # Simulador Named Pipe sin juego
++-- Data/
+|   +-- sessions/                         # Grabaciones JSONL por campo
+|   +-- campo_profiles.json               # Perfiles acumulados por campo/trabajo
 +-- Docs/                                 # Documentacion
 |   +-- Setup/
 |       +-- INSTALACION.md
 |       +-- GUIA_BACKEND.md
 |       +-- WEBSOCKET_INFO.md
-+-- Tests/                                # Pruebas
+|       +-- TESTING.md                    # Guia de la suite de tests
+|   +-- Development/
+|   +-- GUIA_DATOS_TELEMETRIA.md
 |
++-- run_tests.bat                         # Ejecuta las 4 suites (58 tests)
 +-- start.bat                             # Arranque rapido (backend + navegador)
 +-- README.md
 +-- ESTRUCTURA_PROYECTO.md                <- Este archivo
@@ -75,7 +90,7 @@ Interfaz completamente estatica servida por Express.
 1. El navegador carga `index.html`
 2. `index.html` carga Socket.IO (CDN) y `section-loader.js`
 3. `section-loader.js` inyecta los fragmentos HTML de `sections/` en el DOM
-4. `section-loader.js` carga los modulos JS en orden: `gauge.js` -> `telemetry-client.js` -> `dashboard-clock.js` -> `dashboard-terrain.js` -> `dashboard-history.js` -> `ui-updater.js` -> `dashboard.js`
+4. `section-loader.js` carga los modulos JS en orden: `gauge.js` -> `uplot.min.js` -> `telemetry-client.js` -> `dashboard-clock.js` -> `dashboard-terrain.js` -> `dyno-chart.js` -> `ia-analysis.js` -> `ui-updater.js` -> `dashboard.js`
 5. `dashboard.js` llama a `window.initDashboard()`
 
 ### Backend (`Dashboard/backend/`)
@@ -94,5 +109,15 @@ Node.js + Express + Socket.io.
 
 | Carpeta | Descripcion |
 |---|
-| `SHTelemetry/` | Mod que extrae datos del juego via Named Pipe usando SimHub |
-| `MoreRealistic_FS25-main/` | Mod de fisica realista (valores de torque, consumo precisos) |
+| `SHTelemetry/` | Mod que extrae datos del juego via Named Pipe |
+| `MoreRealistic_FS25` | Mod de fisica realista (torque, consumo, bandas de potencia) |
+
+### Tests y analisis
+
+| Carpeta / archivo | Descripcion |
+|---|---|
+| `run_tests.bat` | Ejecuta 58 tests en 4 suites |
+| `Tests/frontend_logic.test.js` | Tests de logica de gauges |
+| `Tests/mock_telemetry_provider.js` | Simulador de telemetria sin FS25 |
+| `Scripts/analyze_session.py` | Analiza sesiones JSONL y actualiza perfiles |
+| `Data/sessions/` | Archivos `.jsonl` grabados en partida |

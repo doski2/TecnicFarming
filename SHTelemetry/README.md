@@ -2,7 +2,7 @@
 
 ## 📋 Descripción
 
-SHTelemetry es un mod para Farming Simulator 2025 que captura datos de telemetría en tiempo real del vehículo y los envía a través de una Named Pipe (Windows) para ser procesados por un servidor Node.js y visualizados en un dashboard React.
+SHTelemetry es un mod para Farming Simulator 2025 que captura datos de telemetría en tiempo real del vehículo y los envía a través de una Named Pipe (Windows) para ser procesados por el backend Node.js y visualizados en el dashboard HTML.
 
 **Versión actual:** 2.2  
 **Estado:** ✅ Producción  
@@ -70,14 +70,14 @@ SHTelemetry/
 
 ```
 Juego (FS25)
-    ↓ (Lua: SHTelemetry.lua)
+    ↓ (Lua: SHTelemetry.lua + SHTelemetry_Extensions.lua)
 Named Pipe: \\.\pipe\SHTelemetry
-    ↓ (JSON)
-Servidor Node.js
-    ↓ (WebSocket)
-Dashboard React
+    ↓ (JSON línea por línea)
+Backend Node.js (TelemetryService)
+    ↓ (Socket.io / WebSocket)
+Dashboard HTML (Vanilla JS)
     ↓
-Visualización en vivo
+Visualización en vivo + grabación JSONL
 ```
 
 ### Ciclo de captura
@@ -137,6 +137,16 @@ end)
 
 **Paso 3:** Reinicia el juego
 
+### Probar sin abrir el juego
+
+Desde la raíz del proyecto TecnicFarming:
+
+```bat
+node Tests\mock_telemetry_provider.js
+```
+
+Inicia un simulador que crea la Named Pipe y envía telemetría falsa. Luego arranca el backend con `npm start`.
+
 ### Debugging
 
 Abre la consola del juego (F10) y ejecuta:
@@ -160,11 +170,12 @@ end
 
 ## 📚 Documentación
 
-- **[QUICK_START_MOREALISTIC.md](../docs/QUICK_START_MOREALISTIC.md)** - Guía rápida
-- **[GUIDE_GSVEHICLEDEBUG.md](../docs/GUIDE_GSVEHICLEDEBUG.md)** - Uso de gsVehicleDebug
-- **[EXPANSION_MOREALISTIC.md](../docs/EXPANSION_MOREALISTIC.md)** - Expansión avanzada
-- **[DATA_FLOW_DIAGRAM.md](../docs/DATA_FLOW_DIAGRAM.md)** - Diagramas de flujo
-- **[CHANGELOG_2_2.md](../docs/CHANGELOG_2_2.md)** - Cambios en versión 2.2
+Documentación del proyecto TecnicFarming:
+
+- **[README principal](../README.md)** — Visión general
+- **[Guía de datos](../Docs/GUIA_DATOS_TELEMETRIA.md)** — Campos JSONL y flujo
+- **[Guía de tests](../Docs/Setup/TESTING.md)** — Simulador y suite de tests
+- **[Tracción de ruedas](../Docs/Development/TRACCION_RUEDAS.md)** — Datos extendidos v2.2+
 
 ## 🐛 Troubleshooting
 
@@ -172,8 +183,8 @@ end
 
 1. ¿Está el mod activado en el gestor de mods?
 2. ¿Está el servidor Node.js corriendo? (`npm start`)
-3. ¿El dashboard está conectado a `ws://localhost:3000`?
-4. Verifica los logs en F10 (consola del juego)
+3. ¿El dashboard está abierto en <http://localhost:8080>?
+4. Verifica los logs en F10 (consola del juego) y en `Dashboard/backend/logs/`
 
 ### "spec_moreRealistic es nil"
 
@@ -211,7 +222,7 @@ Este mod se distribuye bajo la misma licencia que el original de SimHub.
 
 ---
 
-**Última actualización:** 05 de febrero de 2026  
+**Última actualización:** 13 de junio de 2026  
 **Versión:** 2.2  
 **Autor original:** wotever  
 **Mantenedor actual:** [tu nombre aquí]

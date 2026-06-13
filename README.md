@@ -25,8 +25,9 @@ Dashboard en tiempo real para monitorear rendimiento de maquinaria en FS25
 
 - Windows 10/11
 - Node.js 16+
+- Python 3.10+ (opcional, para tests de análisis y `analyze_session.py`)
 - Farming Simulator 2025
-- FSTelemetry + MoreRealistic_FS25 mods
+- SHTelemetry + MoreRealistic_FS25 (mods)
 
 ### Instalación (3 pasos)
 
@@ -53,31 +54,62 @@ Luego abre en navegador:
 ## 📚 Documentación
 
 | Sección | Descripción |
+|---------|-------------|
+| [Setup](./Docs/Setup/) | Instalación, backend, WebSocket y tests |
+| [Desarrollo](./Docs/Development/) | Tracción, carga de ejes, IA telemetría |
+| [Datos de telemetría](./Docs/GUIA_DATOS_TELEMETRIA.md) | Campos JSONL y flujo de grabación |
+| [Índice completo](./Docs/README.md) | Todas las guías disponibles |
 
-| [Setup](./Docs/Setup/) | Instalación y configuración |
-| [Arquitectura](./Docs/Architecture/) | Diseño del sistema |
-| [API](./Docs/API/) | Interfaces WebSocket/Lua |
-| [Desarrollo](./Docs/Development/) | Guías técnicas |
+---
+
+## 🧪 Testing y Validación
+
+Suite automatizada de **58 tests** en 4 módulos. Ejecuta desde la raíz:
+
+```bat
+run_tests.bat
+```
+
+| Suite | Archivo | Tests | Qué valida |
+|-------|---------|-------|------------|
+| Backend | `Dashboard/backend/Tests/telemetry.test.js` | 7 | Parseo JSON, EMA de masa, chunks, tracción |
+| Frontend | `Tests/frontend_logic.test.js` | 3 | Ángulos de aguja RPM/velocidad, zonas ECO/OPT |
+| Telemetría | `Scripts/test_telemetry.js` | 28 | Mapeo de campos, logging JSONL, wheelTraction |
+| Análisis | `Scripts/test_analyze_session.py` | 20 | Estadísticas y perfiles de campo |
+
+📖 **[Guía completa de tests →](./Docs/Setup/TESTING.md)**
+
+### Simulador sin juego
+
+```bat
+node Tests\mock_telemetry_provider.js
+```
+
+Crea la Named Pipe `\\.\pipe\SHTelemetry` y envía telemetría simulada para probar el dashboard sin abrir FS25.
 
 ---
 
 ## 📂 Estructura del Proyecto
 
+```
 TecnicFarming/
 ├── Dashboard/
-│   ├── frontend/          # HTML, CSS, JavaScript
-│   │   ├── index.html
-│   │   ├── css/           # variables.css, layout.css, components.css
-│   │   ├── js/            # gauge.js, section-loader.js, telemetry-client.js…
-│   │   └── sections/      # Fragmentos HTML cargados dinámicamente
-│   └── backend/           # Node.js, Socket.io
+│   ├── frontend/              # HTML, CSS, JavaScript
+│   │   ├── js/                  # gauge.js, telemetry-client.js, dashboard.js…
+│   │   └── sections/            # Fragmentos HTML cargados dinámicamente
+│   └── backend/                 # Node.js + Express + Socket.io
 │       ├── server.js
-│       └── src/services/
-├── SHTelemetry/           # Mod telemetría (SHTelemetry.lua)
-├── MoreRealistic_FS25-main/     # Mod física realista
-├── Docs/                  # Documentación completa
-├── start.bat              # Arranque rápido (backend + navegador)
-└── README.md              # Este archivo
+│       ├── Tests/               # Tests unitarios del backend
+│       └── src/services/        # telemetry.js
+├── SHTelemetry/                 # Mod telemetría (Lua → Named Pipe)
+├── Scripts/                     # analyze_session.py + tests
+├── Tests/                       # Tests frontend + simulador
+├── Data/                        # Sesiones JSONL y perfiles de campo
+├── Docs/                        # Documentación
+├── run_tests.bat                # Suite completa de tests
+├── start.bat                    # Arranque rápido (backend + navegador)
+└── README.md
+```
 
 ---
 
@@ -108,12 +140,14 @@ TecnicFarming/
 ## 🛠️ Stack Tecnológico
 
 | Capa | Tecnología |
-
+|------|------------|
 | **Backend** | Node.js + Express |
 | **Real-time** | Socket.io (WebSocket) |
 | **Frontend** | HTML5 + CSS3 + Vanilla JS |
-| **Gráficos** | SVG + Chart.js (opcional) |
-| **Datos** | FSTelemetry Named Pipe |
+| **Gráficos** | SVG + gráficos históricos |
+| **Datos** | SHTelemetry → Named Pipe |
+| **Análisis** | Python (`analyze_session.py`) |
+| **Tests** | Node.js test runner + Python unittest |
 
 ---
 
@@ -123,21 +157,16 @@ TecnicFarming/
 
 - [x] Dashboard diseño visual completo
 - [x] Tachómetro SVG con dinámicas
-- [x] Tarjetas de telemetría
-- [x] Indicadores de inclinación
-- [x] Cálculos de eficiencia
-- [x] Estructura de proyecto
+- [x] Tarjetas de telemetría e inclinación de terreno
+- [x] Backend Node.js + Socket.io + Named Pipe
+- [x] Datos en tiempo real y grabación de sesiones JSONL
+- [x] Análisis de sesiones y perfiles de campo (Python)
+- [x] Suite de tests automatizada (58 tests)
 
 ### ⏳ En Desarrollo
 
-- [x] Backend Node.js + Socket.io
-- [x] Conexión Named Pipe
-- [x] Datos en tiempo real
-
-### ❌ Por Hacer (Fase 2)
-
-- [x] Histórico de datos
-- [ ] Análisis IA (TensorFlow.js)
+- [ ] Análisis IA avanzado (TensorFlow.js)
+- [ ] Optimización de payload (MessagePack)
 
 ---
 
@@ -145,10 +174,9 @@ TecnicFarming/
 
 Ver [.env.example](./Dashboard/backend/.env.example) para todas las opciones.
 
-**Puertos por defecto:**
+**Puerto por defecto:**
 
-- Backend: `3000`
-- Frontend: `8080`
+- HTTP + WebSocket + frontend estático: `8080`
 
 ---
 
@@ -171,11 +199,12 @@ Ver [.env.example](./Dashboard/backend/.env.example) para todas las opciones.
 
 ### FSTelemetry no se conecta
 
-1. Confirma mod activo en FS25
-2. Verifica Named Pipe: `\\\.\pipe\SHTelemetry`
+1. Confirma mod **SHTelemetry** activo en FS25
+2. Verifica Named Pipe: `\\.\pipe\SHTelemetry`
 3. Reinicia el servidor backend
+4. Alternativa de prueba: `node Tests\mock_telemetry_provider.js`
 
-📖 **[Troubleshooting Completo →](./Docs/Setup/TROUBLESHOOTING.md)**
+📖 **[Guía de tests →](./Docs/Setup/TESTING.md)** · **[Backend →](./Docs/Setup/GUIA_BACKEND.md)**
 
 ---
 
@@ -201,5 +230,5 @@ Dashboard desarrollado para optimizar análisis de rendimiento en Farming Simula
 
 ---
 
-**Última actualización:** 25 de marzo de 2026  
+**Última actualización:** 13 de junio de 2026  
 **Estado:** En desarrollo activo 🚀

@@ -194,12 +194,10 @@ Generado automáticamente por `analyze_session.py` cada vez que se analiza una s
 
 ```
 FS25 (juego)
-  └─ SHTelemetry.lua          — Captura datos del motor, ruedas, implemento cada 10ms
-       └─ SHTelemetry_Extensions.lua  — Captura posición, ruedas MR, implemento, pitch/roll
-            └─ Named Pipe \\\\.\\pipe\\SHTelemetry  — Envío como JSON línea por línea
-                 └─ pipe-to-tcp-bridge.ps1  — Puente PowerShell Pipe → TCP :9000
-                      └─ TelemetryService (Node.js)  — Recibe, parsea, filtra
-                           ├─ WebSocket → Dashboard frontend (tiempo real)
-                           └─ _logSample() → Data/sessions/<campo>/<fecha>.jsonl (1/s)
-                                └─ analyze_session.py → Data/campo_profiles.json
+  └─ SHTelemetry.lua + SHTelemetry_Extensions.lua
+       └─ Named Pipe \\.\pipe\SHTelemetry  (JSON línea por línea)
+            └─ TelemetryService (Node.js)  — Recibe, parsea, filtra EMA
+                 ├─ Socket.io → Dashboard frontend (tiempo real, :8080)
+                 └─ _logSample() → Data/sessions/<campo>/<fecha>.jsonl (1/s)
+                      └─ analyze_session.py → Data/campo_profiles.json
 ```
