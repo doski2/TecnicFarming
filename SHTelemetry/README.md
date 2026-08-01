@@ -2,10 +2,12 @@
 
 ## 📋 Descripción
 
-SHTelemetry es un mod para Farming Simulator 2025 que captura datos de telemetría en tiempo real del vehículo y los envía a través de una Named Pipe (Windows) para ser procesados por el backend Node.js y visualizados en el dashboard HTML.
+SHTelemetry es un mod para Farming Simulator 2025 que captura datos de telemetría en tiempo real del
+vehículo y los envía a través de una Named Pipe (Windows) para ser procesados por el backend Node.js
+y visualizados en el dashboard HTML.
 
-**Versión actual:** 2.2  
-**Estado:** ✅ Producción  
+**Versión actual:** 2.2
+**Estado:** ✅ Producción
 **Compatibilidad:** FS 2025, Windows 7+
 
 ## 🎯 Características
@@ -31,7 +33,7 @@ SHTelemetry es un mod para Farming Simulator 2025 que captura datos de telemetr�
 
 ## 📁 Estructura de archivos
 
-```
+```text
 SHTelemetry/
 ├── modDesc.xml                    ← Manifiesto del mod
 ├── SHTelemetry.lua               ← Lógica principal (Lua)
@@ -43,8 +45,8 @@ SHTelemetry/
 
 1. **Descarga el mod**
 
-   ```
-    Copiar o renombrar como `SHTelemetry.zip` en:
+   ```text
+   Copiar o renombrar como `SHTelemetry.zip` en:
    C:\Users\[Usuario]\Documents\My Games\FarmingSimulator2025\mods\
    ```
 
@@ -55,20 +57,21 @@ SHTelemetry/
 4. **Inicia el servidor Node.js**
 
    ```bash
-    cd c:\Users\doski\TecnicFarming\Dashboard\backend
+   cd c:\Users\doski\TecnicFarming\Dashboard\backend
    npm start
    ```
 
 5. **Abre el dashboard**
-   ```
-    Abre: http://localhost:8080
+
+   ```text
+   Abre: http://localhost:8080
    ```
 
 ## 📊 Cómo funciona
 
 ### Flujo de datos
 
-```
+```text
 Juego (FS25)
     ↓ (Lua: SHTelemetry.lua + SHTelemetry_Extensions.lua)
 Named Pipe: \\.\pipe\SHTelemetry
@@ -145,7 +148,8 @@ Desde la raíz del proyecto TecnicFarming:
 node Tests\mock_telemetry_provider.js
 ```
 
-Inicia un simulador que crea la Named Pipe y envía telemetría falsa. Luego arranca el backend con `npm start`.
+Inicia un simulador que crea la Named Pipe y envía telemetría falsa. Luego arranca el backend con
+`npm start`.
 
 ### Debugging
 
@@ -222,7 +226,7 @@ Este mod se distribuye bajo la misma licencia que el original de SimHub.
 
 ---
 
-**Última actualización:** 13 de junio de 2026  
-**Versión:** 2.2  
-**Autor original:** wotever  
+**Última actualización:** 13 de junio de 2026
+**Versión:** 2.2
+**Autor original:** wotever
 **Mantenedor actual:** [tu nombre aquí]

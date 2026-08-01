@@ -1,6 +1,7 @@
 (function () {
   var fragments = [
     { targetId: 'app-topnav',       path: './sections/topnav.html' },
+    { targetId: 'app-trabajo',      path: './sections/trabajo-tab.html' },
     { targetId: 'app-col-left',     path: './sections/col-left.html' },
     { targetId: 'app-col-center',   path: './sections/col-center.html' },
     { targetId: 'app-col-right',    path: './sections/col-right.html' },
@@ -76,64 +77,103 @@
 
       window.dashboardSectionsReady = true;
 
-      // Poblar select de campos (1–38 Alma Missouri) y notificar al backend al cambiar
-      var campoSelect = document.getElementById('ia-campo-id');
-      if (campoSelect) {
+      // Poblar selects de campo (Trabajo + Campo·IA) y sincronizar ambos
+      function populateCampoSelect(selectEl) {
+        if (!selectEl) return;
         for (var i = 1; i <= 38; i++) {
           var opt = document.createElement('option');
           opt.value = i;
           opt.textContent = 'Campo ' + i;
-          campoSelect.appendChild(opt);
+          selectEl.appendChild(opt);
         }
-        campoSelect.addEventListener('change', function() {
-          var val = parseInt(this.value, 10);
-          window._activoCampo = isNaN(val) ? -1 : val;
-          fetch('/api/session/campo', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ campo: isNaN(val) ? -1 : val })
-          }).catch(function(err) {
-            console.warn('No se pudo actualizar campo:', err);
-          });
-          // Resetear contador de muestras al cambiar de campo
-          window._iaSampleCount = 0;
-          // Limpiar banda de perfil histórico (es del campo anterior)
-          if (typeof window._renderProfileStrip === 'function') {
-            window._renderProfileStrip(null);
-          } else {
-            var s = document.getElementById('ia-profile-strip');
-            if (s) s.classList.add('ia-hidden');
-          }
-          // Cargar archivos grabados del nuevo campo
-          if (typeof window.loadCampoSessions === 'function') {
-            window.loadCampoSessions(isNaN(val) ? -1 : val);
-          }
-        });
       }
+
+      function syncCampoSelects(sourceId) {
+        var trabajo = document.getElementById('trabajo-campo-id');
+        var ia = document.getElementById('ia-campo-id');
+        var source = document.getElementById(sourceId);
+        if (!source) return;
+        var val = source.value;
+        if (trabajo && sourceId !== 'trabajo-campo-id') trabajo.value = val;
+        if (ia && sourceId !== 'ia-campo-id') ia.value = val;
+      }
+
+      function onCampoChange(selectEl) {
+        var val = parseInt(selectEl.value, 10);
+        window._activoCampo = isNaN(val) ? -1 : val;
+        syncCampoSelects(selectEl.id);
+        fetch('/api/session/campo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ campo: isNaN(val) ? -1 : val })
+        }).catch(function(err) {
+          console.warn('No se pudo actualizar campo:', err);
+        });
+        window._iaSampleCount = 0;
+        if (typeof window._renderProfileStrip === 'function') {
+          window._renderProfileStrip(null);
+        } else {
+          var s = document.getElementById('ia-profile-strip');
+          if (s) s.classList.add('ia-hidden');
+        }
+        if (typeof window.loadCampoSessions === 'function') {
+          window.loadCampoSessions(isNaN(val) ? -1 : val);
+        }
+      }
+
+      var campoSelects = [
+        document.getElementById('trabajo-campo-id'),
+        document.getElementById('ia-campo-id')
+      ];
+      campoSelects.forEach(function(sel) {
+        populateCampoSelect(sel);
+        if (sel) {
+          sel.addEventListener('change', function() { onCampoChange(this); });
+        }
+      });
 
       if (typeof window.initDashboard === 'function') {
         window.initDashboard();
       }
 
-      // Tab switching (accesible globalmente)
+      // Tab switching: trabajo (default) | dashboard | campo
       window.switchTab = function(tab) {
-        var main  = document.getElementById('app-main');
-        var ia    = document.getElementById('app-ia');
-        var btnD  = document.getElementById('tab-btn-dashboard');
-        var btnC  = document.getElementById('tab-btn-campo');
+        var trabajo = document.getElementById('app-trabajo');
+        var main    = document.getElementById('app-main');
+        var ia      = document.getElementById('app-ia');
+        var btnT    = document.getElementById('tab-btn-trabajo');
+        var btnD    = document.getElementById('tab-btn-dashboard');
+        var btnC    = document.getElementById('tab-btn-campo');
+
+        function setActive(btn) {
+          [btnT, btnD, btnC].forEach(function(b) {
+            if (b) b.classList.remove('tab-active');
+          });
+          if (btn) btn.classList.add('tab-active');
+        }
+
         if (tab === 'campo') {
-          if (main) main.style.display = 'none';
-          if (ia)   ia.style.display   = 'block';
-          if (btnD) btnD.classList.remove('tab-active');
-          if (btnC) btnC.classList.add('tab-active');
+          if (trabajo) trabajo.style.display = 'none';
+          if (main)    main.style.display    = 'none';
+          if (ia)      ia.style.display      = 'block';
+          setActive(btnC);
+        } else if (tab === 'dashboard') {
+          if (trabajo) trabajo.style.display = 'none';
+          if (main)    main.style.display    = '';
+          if (ia)      ia.style.display      = 'none';
+          setActive(btnD);
         } else {
-          if (main) main.style.display = '';
-          if (ia)   ia.style.display   = 'none';
-          if (btnD) btnD.classList.add('tab-active');
-          if (btnC) btnC.classList.remove('tab-active');
+          if (trabajo) trabajo.style.display = '';
+          if (main)    main.style.display    = 'none';
+          if (ia)      ia.style.display      = 'none';
+          setActive(btnT);
+          tab = 'trabajo';
         }
         window._activeTab = tab;
       };
+
+      window._activeTab = 'trabajo';
+      window.switchTab('trabajo');
     } catch (error) {
       console.error('Dashboard bootstrap failed:', error);
     }

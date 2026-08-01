@@ -1,0 +1,124 @@
+<div class="trabajo-layout">
+
+  <!-- Alertas: solo se muestran cuando hay algo que atender -->
+  <div class="trabajo-alerts" id="trabajo-alerts" hidden>
+    <div class="trabajo-alert" id="trabajo-alert-load" hidden>
+      <span class="trabajo-alert-dot"></span>
+      <span class="trabajo-alert-text">Carga motor alta</span>
+      <strong class="trabajo-alert-val" id="trabajo-alert-load-val">—</strong>
+    </div>
+    <div class="trabajo-alert" id="trabajo-alert-slip" hidden>
+      <span class="trabajo-alert-dot"></span>
+      <span class="trabajo-alert-text">Patinaje elevado</span>
+      <strong class="trabajo-alert-val" id="trabajo-alert-slip-val">—</strong>
+    </div>
+    <div class="trabajo-alert" id="trabajo-alert-fuel" hidden>
+      <span class="trabajo-alert-dot"></span>
+      <span class="trabajo-alert-text">Combustible bajo</span>
+      <strong class="trabajo-alert-val" id="trabajo-alert-fuel-val">—</strong>
+    </div>
+    <div class="trabajo-alert trabajo-alert-info" id="trabajo-alert-campo" hidden>
+      <span class="trabajo-alert-dot"></span>
+      <span class="trabajo-alert-text">Sin campo seleccionado — la sesión se grabará en sin_campo</span>
+    </div>
+  </div>
+
+  <!-- Hero: lo que miras mientras trabajas -->
+  <section class="trabajo-hero">
+    <div class="trabajo-metric" data-metric="rpm">
+      <span class="trabajo-metric-label">RPM</span>
+      <span class="trabajo-metric-value" id="trabajo-rpm">0</span>
+    </div>
+    <div class="trabajo-metric" data-metric="speed">
+      <span class="trabajo-metric-label">Velocidad</span>
+      <span class="trabajo-metric-value" id="trabajo-speed">0.0</span>
+      <span class="trabajo-metric-unit">km/h</span>
+    </div>
+    <div class="trabajo-metric" data-metric="load">
+      <span class="trabajo-metric-label">Carga</span>
+      <span class="trabajo-metric-value" id="trabajo-load">0</span>
+      <span class="trabajo-metric-unit">%</span>
+    </div>
+    <div class="trabajo-metric" data-metric="fuel">
+      <span class="trabajo-metric-label">Consumo</span>
+      <span class="trabajo-metric-value" id="trabajo-fuel">0.0</span>
+      <span class="trabajo-metric-unit">L/h</span>
+    </div>
+    <div class="trabajo-metric" data-metric="slip">
+      <span class="trabajo-metric-label">Patinaje</span>
+      <span class="trabajo-metric-value" id="trabajo-slip">0</span>
+      <span class="trabajo-metric-unit">%</span>
+    </div>
+    <div class="trabajo-metric" data-metric="gear">
+      <span class="trabajo-metric-label">Marcha</span>
+      <span class="trabajo-metric-value trabajo-metric-gear" id="trabajo-gear">N</span>
+    </div>
+  </section>
+
+  <!-- Contexto de trabajo + grabación -->
+  <section class="trabajo-context">
+    <div class="card panel-surface trabajo-card">
+      <div class="card-title lime">Contexto</div>
+      <div class="status-row">
+        <span class="status-label">Campo</span>
+        <select id="trabajo-campo-id" class="campo-select" title="Seleccionar campo">
+          <option value="-1">— Sin campo —</option>
+        </select>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Vehículo</span>
+        <span class="status-value ia-val ia-vehicle-name" id="trabajo-vehicle">—</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Implemento</span>
+        <span class="status-value ia-val" id="trabajo-impl">Sin implemento</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Tipo</span>
+        <span class="work-type-badge" id="trabajo-work-type">—</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Herramienta</span>
+        <span class="ia-badge" id="trabajo-impl-lowered">SUBIDA</span>
+      </div>
+    </div>
+
+    <div class="card panel-surface trabajo-card">
+      <div class="card-title amber">Sesión</div>
+      <div class="status-row">
+        <span class="status-label">Grabación</span>
+        <span class="ia-badge ia-badge-wait" id="trabajo-rec-status">● EN ESPERA</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Muestras</span>
+        <span class="status-value ia-val" id="trabajo-sample-count">0</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Combustible</span>
+        <span class="status-value ia-val" id="trabajo-fuel-pct">— %</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Trabajando</span>
+        <span class="ia-badge" id="trabajo-working">NO</span>
+      </div>
+      <div class="trabajo-hint">
+        Vista de campo. Detalle de gauges en <strong>Dashboard</strong> · análisis en <strong>Campo · IA</strong>.
+      </div>
+    </div>
+
+    <div class="card panel-surface trabajo-card trabajo-load-band">
+      <div class="card-title teal">Zona de carga</div>
+      <div class="trabajo-load-track" aria-hidden="true">
+        <div class="trabajo-load-fill" id="trabajo-load-fill"></div>
+        <div class="trabajo-load-opt" title="Zona óptima 60–85%"></div>
+      </div>
+      <div class="trabajo-load-labels">
+        <span>0</span>
+        <span class="trabajo-load-opt-label">ÓPTIMA</span>
+        <span>125</span>
+      </div>
+      <div class="trabajo-load-advice" id="trabajo-load-advice">Esperando datos…</div>
+    </div>
+  </section>
+
+</div>

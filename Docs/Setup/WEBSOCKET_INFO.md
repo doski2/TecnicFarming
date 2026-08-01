@@ -11,8 +11,6 @@ ws://localhost:8080/telemetry
 ### Cliente Conectando
 
 ```javascript
-// En el navegador, cuando se carga el dashboard (via section-loader.js):
-const telemetryClient = new TelemetryClient();
 ```
 
 ---
@@ -21,68 +19,36 @@ const telemetryClient = new TelemetryClient();
 
 ### `telemetry` — Datos de Motor en Tiempo Real
 
-**Emitido por:** Backend  
+**Emitido por:** Backend
 **Frecuencia:** 60 FPS (cada 16.66ms)
 
 **Estructura:**
 
 ```json
-{
-  "engineSpeed": 2150,
-  "motorTorque": 1685,
-  "motorLoad": 74,
-  "accelerator": 0.8,
-  "fuelUsagePerHour": 34.8,
-  "fuelPercentage": 62,
-  "motorTemperature": 98,
-  "speed": 28,
-  "currentGear": 4,
-  "implementsAttached": true,
-  "implementLowered": true,
-  "implementWorking": false,
-  "mrAvgDrivenWheelsSlip": 1.3,
-  "pitch": -3.2,
-  "roll": 1.8,
-  "tractorDamage": 0,
-  "isMotorStarted": true,
-  "timestamp": 1710700000000,
-  "isRealData": true,
-  "isConnected": true
-}
 ```
 
 ### `connected` — Conexión Establecida
 
-**Emitido por:** Cliente  
+**Emitido por:** Cliente
 **Cuando:** Cuando WebSocket se conecta al servidor
 
 ```javascript
-telemetryClient.on('connected', () => {
-  console.log('✓ Conectado al servidor');
-  // Ahora recibiremos eventos 'telemetry'
-});
 ```
 
 ### `disconnected` — Desconexión
 
-**Emitido por:** Cliente  
+**Emitido por:** Cliente
 **Cuando:** Cuando WebSocket se desconecta
 
 ```javascript
-telemetryClient.on('disconnected', () => {
-  console.warn('✗ Desconectado');
-});
 ```
 
 ### `error` — Error de Conexión
 
-**Emitido por:** Cliente  
+**Emitido por:** Cliente
 **Cuando:** Error en WebSocket
 
 ```javascript
-telemetryClient.on('error', (error) => {
-  console.error('Error:', error.message);
-});
 ```
 
 ---
@@ -98,14 +64,6 @@ No implementado en el cliente actual. Usa DevTools para medir latencia de WebSoc
 ## 📊 Ejemplo de Uso Completo
 
 ```javascript
-// Crear cliente (sin argumentos)
-const telemetryClient = new TelemetryClient();
-
-// Registrar listeners
-telemetryClient.onTelemetry((data) => {
-  console.log(`RPM: ${data.engineSpeed}, Vel: ${data.speed} km/h`);
-  updateDashboard(data);
-});
 ```
 
 ---
@@ -114,15 +72,15 @@ telemetryClient.onTelemetry((data) => {
 
 | Campo | Rango Típico | Alarma | Referencia |
 
-| **engineSpeed** | 0-3000 RPM | >2800 | Redline/Límite |
-| **fuelUsagePerHour** | 5-45 L/h | >40 | Muy alto |
-| **motorTorque** | 500-2000 Nm | <300 | Muy bajo |
-| **motorLoad** | 20-90% | >95% | Sobrecarga |
-| **speed** | 0-60 km/h | >55 | Máxima seguridad |
-| **motorTemperature** | 80-110°C | >115 | Sobrecalentamiento |
-| **fuelPercentage** | 0-100% | <5% | Casi vacío |
-| **pitch** | -15 a +15° | >±12° | Pendiente peligrosa |
-| **mrAvgDrivenWheelsSlip** | 0-3% | >5% | Mucho slip |
+| **engineSpeed**           | 0-3000 RPM  | >2800 | Redline/Límite      |
+| **fuelUsagePerHour**      | 5-45 L/h    | >40   | Muy alto            |
+| **motorTorque**           | 500-2000 Nm | <300  | Muy bajo            |
+| **motorLoad**             | 20-90%      | >95%  | Sobrecarga          |
+| **speed**                 | 0-60 km/h   | >55   | Máxima seguridad    |
+| **motorTemperature**      | 80-110°C    | >115  | Sobrecalentamiento  |
+| **fuelPercentage**        | 0-100%      | <5%   | Casi vacío          |
+| **pitch**                 | -15 a +15°  | >±12° | Pendiente peligrosa |
+| **mrAvgDrivenWheelsSlip** | 0-3%        | >5%   | Mucho slip          |
 
 ---
 
@@ -133,9 +91,6 @@ telemetryClient.onTelemetry((data) => {
 Configurable en `.env`:
 
 ```env
-UPDATE_FREQUENCY_MS=16.66    # 60 FPS
-UPDATE_FREQUENCY_MS=33.33    # 30 FPS (menos carga)
-UPDATE_FREQUENCY_MS=50       # 20 FPS
 ```
 
 ---
@@ -145,8 +100,6 @@ UPDATE_FREQUENCY_MS=50       # 20 FPS
 ### En Chrome DevTools Console
 
 ```javascript
-// Ver si está conectado
-telemetryClient.isConnected
 ```
 
 ### Ver tráfico WebSocket
@@ -167,7 +120,8 @@ Intento 2 → 2000ms delay
 ...
 Intento 10 → máximo alcanzado
 
-Si falla todos los intentos → el panel queda en estado de espera hasta que el backend esté disponible.
+Si falla todos los intentos → el panel queda en estado de espera hasta que el backend esté
+disponible.
 
 ---
 
@@ -176,7 +130,9 @@ Si falla todos los intentos → el panel queda en estado de espera hasta que el 
 - **Latencia esperada:** ~50ms (WebSocket local)
 - **Frecuencia máxima:** Configurable, limitada por rendimiento
 - **Pérdida de datos:** No hay buffer/queue, solo último dato
-- **Estado sin juego:** Badge muestra "Esperando FS25" hasta que llega telemetría real (`isRealData: true`)
+- **Estado sin juego:** Badge muestra "Esperando FS25" hasta que llega telemetría real (`isRealData:
+
+  true`)
 
 ---
 

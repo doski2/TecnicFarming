@@ -90,7 +90,8 @@ En tu navegador, abre:
 
 <http://localhost:8080>
 
-O ejecuta `start.bat` desde la raíz del proyecto (inicia el backend y abre el navegador automáticamente).
+O ejecuta `start.bat` desde la raíz del proyecto (inicia el backend y abre el navegador
+automáticamente).
 
 ## ✅ Verificar Instalación
 

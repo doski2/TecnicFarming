@@ -32,15 +32,6 @@ Dashboard en tiempo real para monitorear rendimiento de maquinaria en FS25
 ### Instalación (3 pasos)
 
 ```bash
-# 1. Instalar dependencias
-cd Dashboard/backend
-npm install
-
-# 2. Configurar entorno
-cp .env.example .env
-
-# 3. Iniciar servidor
-npm start
 ```
 
 Luego abre en navegador:
@@ -53,12 +44,12 @@ Luego abre en navegador:
 
 ## 📚 Documentación
 
-| Sección | Descripción |
-|---------|-------------|
-| [Setup](./Docs/Setup/) | Instalación, backend, WebSocket y tests |
-| [Desarrollo](./Docs/Development/) | Tracción, carga de ejes, IA telemetría |
-| [Datos de telemetría](./Docs/GUIA_DATOS_TELEMETRIA.md) | Campos JSONL y flujo de grabación |
-| [Índice completo](./Docs/README.md) | Todas las guías disponibles |
+| Sección                                                | Descripción                             |
+| ------------------------------------------------------ | --------------------------------------- |
+| [Setup](./Docs/Setup/)                                 | Instalación, backend, WebSocket y tests |
+| [Desarrollo](./Docs/Development/)                      | Tracción, carga de ejes, IA telemetría  |
+| [Datos de telemetría](./Docs/GUIA_DATOS_TELEMETRIA.md) | Campos JSONL y flujo de grabación       |
+| [Índice completo](./Docs/README.md)                    | Todas las guías disponibles             |
 
 ---
 
@@ -67,48 +58,30 @@ Luego abre en navegador:
 Suite automatizada de **58 tests** en 4 módulos. Ejecuta desde la raíz:
 
 ```bat
-run_tests.bat
 ```
 
-| Suite | Archivo | Tests | Qué valida |
-|-------|---------|-------|------------|
-| Backend | `Dashboard/backend/Tests/telemetry.test.js` | 7 | Parseo JSON, EMA de masa, chunks, tracción |
-| Frontend | `Tests/frontend_logic.test.js` | 3 | Ángulos de aguja RPM/velocidad, zonas ECO/OPT |
-| Telemetría | `Scripts/test_telemetry.js` | 28 | Mapeo de campos, logging JSONL, wheelTraction |
-| Análisis | `Scripts/test_analyze_session.py` | 20 | Estadísticas y perfiles de campo |
+| Suite      | Archivo                                     | Tests   | Qué valida                                    |
+| ---------- | ------------------------------------------- | ------- | --------------------------------------------- |
+| Backend    | `Dashboard/backend/Tests/telemetry.test.js` | 7       | Parseo JSON, EMA de masa, chunks, tracción    |
+| Frontend   | `Tests/frontend_logic.test.js`              | 3       | Ángulos de aguja RPM/velocidad, zonas ECO/OPT |
+| Telemetría | `Scripts/test_telemetry.js`                 | 28      | Mapeo de campos, logging JSONL, wheelTraction |
+| Análisis   | `Scripts/test_analyze_session.py`           | 20      | Estadísticas y perfiles de campo              |
 
 📖 **[Guía completa de tests →](./Docs/Setup/TESTING.md)**
 
 ### Simulador sin juego
 
 ```bat
-node Tests\mock_telemetry_provider.js
 ```
 
-Crea la Named Pipe `\\.\pipe\SHTelemetry` y envía telemetría simulada para probar el dashboard sin abrir FS25.
+Crea la Named Pipe `\\.\pipe\SHTelemetry` y envía telemetría simulada para probar el dashboard sin
+abrir FS25.
 
 ---
 
 ## 📂 Estructura del Proyecto
 
-```
-TecnicFarming/
-├── Dashboard/
-│   ├── frontend/              # HTML, CSS, JavaScript
-│   │   ├── js/                  # gauge.js, telemetry-client.js, dashboard.js…
-│   │   └── sections/            # Fragmentos HTML cargados dinámicamente
-│   └── backend/                 # Node.js + Express + Socket.io
-│       ├── server.js
-│       ├── Tests/               # Tests unitarios del backend
-│       └── src/services/        # telemetry.js
-├── SHTelemetry/                 # Mod telemetría (Lua → Named Pipe)
-├── Scripts/                     # analyze_session.py + tests
-├── Tests/                       # Tests frontend + simulador
-├── Data/                        # Sesiones JSONL y perfiles de campo
-├── Docs/                        # Documentación
-├── run_tests.bat                # Suite completa de tests
-├── start.bat                    # Arranque rápido (backend + navegador)
-└── README.md
+```text
 ```
 
 ---
@@ -139,15 +112,15 @@ TecnicFarming/
 
 ## 🛠️ Stack Tecnológico
 
-| Capa | Tecnología |
-|------|------------|
-| **Backend** | Node.js + Express |
-| **Real-time** | Socket.io (WebSocket) |
-| **Frontend** | HTML5 + CSS3 + Vanilla JS |
-| **Gráficos** | SVG + gráficos históricos |
-| **Datos** | SHTelemetry → Named Pipe |
-| **Análisis** | Python (`analyze_session.py`) |
-| **Tests** | Node.js test runner + Python unittest |
+| Capa          | Tecnología                            |
+| ------------- | ------------------------------------- |
+| **Backend**   | Node.js + Express                     |
+| **Real-time** | Socket.io (WebSocket)                 |
+| **Frontend**  | HTML5 + CSS3 + Vanilla JS             |
+| **Gráficos**  | SVG + gráficos históricos             |
+| **Datos**     | SHTelemetry → Named Pipe              |
+| **Análisis**  | Python (`analyze_session.py`)         |
+| **Tests**     | Node.js test runner + Python unittest |
 
 ---
 
@@ -230,5 +203,5 @@ Dashboard desarrollado para optimizar análisis de rendimiento en Farming Simula
 
 ---
 
-**Última actualización:** 13 de junio de 2026  
+**Última actualización:** 13 de junio de 2026
 **Estado:** En desarrollo activo 🚀

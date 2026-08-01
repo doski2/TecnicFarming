@@ -31,6 +31,7 @@
       this.updateEfficiencyZones(data);
       this.updateGearAdvice(data);
       this.updateIATab(data);
+      this.updateTrabajoView(data);
     } catch (error) {
       console.error('Error en updateTelemetry:', error);
     }
@@ -696,6 +697,176 @@
       btnEl.disabled    = !enough;
       btnEl.title       = enough ? 'Analizar los datos de esta sesión' : 'Necesitas al menos 100 muestras (≈1min 40s trabajando)';
     }
+  }
+
+  /**
+   * Vista Trabajo — métricas grandes + alertas + contexto de campo/grabación
+   */
+  updateTrabajoView(data) {
+    var setText = function(id, value) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = value;
+    };
+
+    var rpm = Math.round(data.engineSpeed || 0);
+    var speed = Math.abs(data.speed || 0);
+    var load = +(data.motorLoad || 0);
+    var fuelLph = +(data.fuelUsagePerHour || 0);
+    var fuelPct = +(data.fuelPercentage != null ? data.fuelPercentage : (data.fuelLevel || 0));
+
+    // Slip: media de longSlip traseros si hay wheelTraction; fallback mrAvgDrivenWheelsSlip
+    var slipPct = 0;
+    var wt = data.wheelTraction;
+    if (Array.isArray(wt) && wt.length >= 4) {
+      var slips = [];
+      for (var i = 2; i <= 3; i++) {
+        var w = wt[i];
+        if (!w) continue;
+        var raw = (w.longSlip != null) ? w.longSlip : (w.slip || 0);
+        slips.push(Math.abs(raw) * (Math.abs(raw) <= 1 ? 100 : 1));
+      }
+      if (slips.length) {
+        slipPct = slips.reduce(function(a, b) { return a + b; }, 0) / slips.length;
+      }
+    } else {
+      slipPct = (data.mrAvgDrivenWheelsSlip || 0) * 100;
+    }
+    slipPct = Math.round(slipPct);
+
+    setText('trabajo-rpm', rpm);
+    setText('trabajo-speed', speed.toFixed(1));
+    setText('trabajo-load', (+load.toFixed(1)));
+    setText('trabajo-fuel', fuelLph.toFixed(1));
+    setText('trabajo-slip', slipPct);
+    setText('trabajo-fuel-pct', (fuelPct > 0 || fuelPct === 0) ? (+fuelPct.toFixed(0)) + ' %' : '— %');
+
+    // Marcha (misma lógica que IA)
+    var gearEl = document.getElementById('trabajo-gear');
+    if (gearEl) {
+      var trans = data.transmissionType || 'manual';
+      var grp = data.gearGroupName || '';
+      var g = data.currentGear || 'N';
+      if (trans === 'cvt') {
+        gearEl.textContent = 'CVT';
+      } else if (grp && String(g).indexOf(grp) !== 0) {
+        gearEl.textContent = grp + g;
+      } else {
+        gearEl.textContent = g || 'N';
+      }
+    }
+
+    // Estados visuales de métricas
+    var loadMetric = document.querySelector('.trabajo-metric[data-metric="load"]');
+    if (loadMetric) {
+      loadMetric.classList.remove('ok', 'warn', 'danger');
+      if (load > 100) loadMetric.classList.add('danger');
+      else if (load > 85) loadMetric.classList.add('warn');
+      else if (load >= 60) loadMetric.classList.add('ok');
+    }
+    var slipMetric = document.querySelector('.trabajo-metric[data-metric="slip"]');
+    if (slipMetric) {
+      slipMetric.classList.remove('warn', 'danger');
+      if (slipPct >= 20) slipMetric.classList.add('danger');
+      else if (slipPct >= 12) slipMetric.classList.add('warn');
+    }
+    var fuelMetric = document.querySelector('.trabajo-metric[data-metric="fuel"]');
+    if (fuelMetric) {
+      fuelMetric.classList.toggle('danger', fuelPct > 0 && fuelPct < 15);
+    }
+
+    // Barra de zona de carga (escala 0–125)
+    var fill = document.getElementById('trabajo-load-fill');
+    if (fill) {
+      var pct = Math.max(0, Math.min(125, load)) / 125 * 100;
+      fill.style.width = pct + '%';
+    }
+    var advice = document.getElementById('trabajo-load-advice');
+    if (advice) {
+      if (load <= 0 && rpm < 100) {
+        advice.textContent = 'Esperando datos…';
+      } else if (load < 30) {
+        advice.textContent = 'Motor descargado — puedes subir velocidad o acelerador.';
+      } else if (load < 60) {
+        advice.textContent = 'Carga media — aceptable en transporte o cuestas suaves.';
+      } else if (load <= 85) {
+        advice.textContent = 'Zona óptima — buen equilibrio potencia / combustible.';
+      } else if (load <= 100) {
+        advice.textContent = 'Carga alta — vigila temperatura y patinaje.';
+      } else {
+        advice.textContent = 'Sobrecarga — reduce velocidad o profundidad.';
+      }
+    }
+
+    // Contexto
+    var workTypeMap = {
+      HARVESTER: 'Cosecha', SOWER: 'Siembra', SPRAYER: 'Pulverización',
+      FERTILIZER: 'Abonado', PLOW: 'Arado', CULTIVATOR: 'Cultivo',
+      MOWER: 'Siega', BALER: 'Empacado', TRANSPORT: 'Transporte',
+      FIELDWORK: 'Campo', UNKNOWN: '—'
+    };
+    var rawType = data.workType || 'UNKNOWN';
+    setText('trabajo-vehicle', data.vehicleName || '—');
+    setText('trabajo-impl', (data.implementName || '').trim() || 'Sin implemento');
+    setText('trabajo-work-type', workTypeMap[rawType] || rawType);
+
+    var lowEl = document.getElementById('trabajo-impl-lowered');
+    if (lowEl) {
+      var lw = !!data.implementLowered;
+      lowEl.textContent = lw ? 'BAJADA' : 'SUBIDA';
+      lowEl.className = 'ia-badge' + (lw ? ' active' : ' inactive');
+    }
+
+    var working = !!(data.implementWorking || (data.implementLowered && speed > 0.3));
+    var wrkEl = document.getElementById('trabajo-working');
+    if (wrkEl) {
+      wrkEl.textContent = working ? 'SÍ' : 'NO';
+      wrkEl.className = 'ia-badge' + (working ? ' active' : '');
+    }
+
+    var recording = !!(data.implementLowered && speed > 0.3);
+    var recEl = document.getElementById('trabajo-rec-status');
+    if (recEl) {
+      recEl.textContent = recording ? '● GRABANDO' : '● EN ESPERA';
+      recEl.className = recording ? 'ia-badge active' : 'ia-badge ia-badge-wait';
+    }
+
+    var sc = window._iaSampleCount || 0;
+    var minEst = sc >= 60 ? ' (~' + (sc / 60).toFixed(1) + ' min)' : '';
+    setText('trabajo-sample-count', sc + ' muestras' + minEst);
+
+    // Alertas
+    this.updateTrabajoAlerts(load, slipPct, fuelPct, recording);
+  }
+
+  updateTrabajoAlerts(load, slipPct, fuelPct, recording) {
+    var wrap = document.getElementById('trabajo-alerts');
+    if (!wrap) return;
+
+    var show = function(id, visible, valId, valText) {
+      var el = document.getElementById(id);
+      if (!el) return false;
+      if (visible) {
+        el.hidden = false;
+        if (valId && valText != null) {
+          var v = document.getElementById(valId);
+          if (v) v.textContent = valText;
+        }
+        return true;
+      }
+      el.hidden = true;
+      return false;
+    };
+
+    var any = false;
+    any = show('trabajo-alert-load', load > 95, 'trabajo-alert-load-val', (+load.toFixed(0)) + '%') || any;
+    any = show('trabajo-alert-slip', slipPct >= 15, 'trabajo-alert-slip-val', slipPct + '%') || any;
+    any = show('trabajo-alert-fuel', fuelPct > 0 && fuelPct < 15, 'trabajo-alert-fuel-val', Math.round(fuelPct) + '%') || any;
+
+    var campo = window._activoCampo;
+    var noCampo = (campo == null || campo < 1) && recording;
+    any = show('trabajo-alert-campo', noCampo) || any;
+
+    wrap.hidden = !any;
   }
 
 }

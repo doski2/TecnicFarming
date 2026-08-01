@@ -25,6 +25,7 @@ Dashboard/frontend/
 │       └── ia-analysis.js
 └── sections/
     ├── topnav.html
+    ├── trabajo-tab.html          # Vista productiva (por defecto)
     ├── col-left.html
     ├── col-center.html
     ├── col-right.html
@@ -40,6 +41,14 @@ Dashboard/frontend/
         ├── terrain-angle.html
         └── wheel-traction.html
 ```
+
+## Vistas (pestañas)
+
+| Pestaña        | Uso                                                                                             |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| **Trabajo**    | Vista por defecto: RPM, velocidad, carga, consumo, patinaje, marcha, campo, grabación y alertas |
+| **Dashboard**  | Vista completa con gauges, dyno, tracción y tarjetas detalladas                                 |
+| **Campo · IA** | Análisis de sesión, perfiles y archivos JSONL                                                   |
 
 ## Qué hace cada archivo
 
@@ -88,7 +97,8 @@ El orden en `index.html` es:
 node Tests\frontend_logic.test.js
 ```
 
-Valida ángulos de aguja del tacómetro y velocímetro, y posicionamiento de líneas ECO/OPT en `gauge.js`. Ver [Docs/Setup/TESTING.md](../../Docs/Setup/TESTING.md).
+Valida ángulos de aguja del tacómetro y velocímetro, y posicionamiento de líneas ECO/OPT en
+`gauge.js`. Ver [Docs/Setup/TESTING.md](../../Docs/Setup/TESTING.md).
 
 ## Contrato de telemetría
 

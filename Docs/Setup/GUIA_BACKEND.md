@@ -3,35 +3,27 @@
 ## 1️⃣ Instalar Dependencias
 
 ```bash
-cd Dashboard/backend
-npm install
 ```
 
 Instalará:
 
 - `express` — Servidor HTTP
-- `socket.io` — WebSocket tiempo real  
+- `socket.io` — WebSocket tiempo real
 - `dotenv` — Variables de entorno
 
 ## 2️⃣ Crear Archivo .env
 
 ```bash
-cp .env.example .env
 ```
 
 **Edita `.env` con tus valores** (generalmente son correctos por defecto):
 
 ```env
-NODE_ENV=development
-SOCKET_IO_PORT=8080
-NAMED_PIPE_NAME=\\\\.\\pipe\\SHTelemetry
-UPDATE_FREQUENCY_MS=16.66
 ```
 
 ## 3️⃣ Iniciar Servidor
 
 ```bash
-npm start
 ```
 
 Deberías ver:
@@ -62,8 +54,6 @@ En tu navegador:
 **Console:**
 
 ```javascript
-// Ver estado conexión
-telemetryClient.isConnected
 ```
 
 **Network → WS:**
@@ -76,8 +66,6 @@ telemetryClient.isConnected
 ### "Port already in use"
 
 ```bash
-# Cambiar puerto en .env
-SOCKET_IO_PORT=8081
 ```
 
 ### "Named Pipe no disponible"
@@ -96,24 +84,6 @@ SOCKET_IO_PORT=8081
 El servidor envía datos como:
 
 ```json
-{
-  "engineSpeed": 2150,
-  "fuelUsagePerHour": 34.8,
-  "motorTorque": 1685,
-  "motorLoad": 74,
-  "speed": 28,
-  "currentGear": 4,
-  "motorTemperature": 98,
-  "fuelPercentage": 62,
-  "pitch": -3.2,
-  "roll": 1.8,
-  "mrAvgDrivenWheelsSlip": 1.3,
-  "tractorDamage": 0,
-  "isMotorStarted": true,
-  "isRealData": true,
-  "isConnected": true,
-  "timestamp": 1710700000000
-}
 ```
 
 ## ✅ Verificación de Conexión
@@ -128,11 +98,10 @@ El servidor envía datos como:
 ## 🧪 Tests del backend
 
 ```bat
-cd Dashboard\backend
-npm test
 ```
 
-Valida parseo JSON, EMA de masa, chunks parciales y mapeo de tracción. Para la suite completa (58 tests), ejecuta `run_tests.bat` desde la raíz.
+Valida parseo JSON, EMA de masa, chunks parciales y mapeo de tracción. Para la suite completa (58
+tests), ejecuta `run_tests.bat` desde la raíz.
 
 Ver **[TESTING.md](./TESTING.md)**.
 

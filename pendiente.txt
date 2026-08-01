@@ -1,0 +1,4 @@
+pendiente:
+1.auto detectar el campo a la hora de grabar.
+2.cuando ya tenemos algo grabado hace la media automaticamente? con los resultados 
+anteriores?

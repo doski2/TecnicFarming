@@ -13,9 +13,6 @@
 - **Uso en tu proyecto:** Reemplazar SVG manual del gráfico de consumo
 
 ```javascript
-// Actualizar cada 60ms sin redraw completo
-chart.data.datasets[0].data.push(newValue);
-chart.update('none'); // Sin animación, solo render
 ```
 
 ### 2. **D3.js**
@@ -100,12 +97,6 @@ chart.update('none'); // Sin animación, solo render
 - **Servidor:** Node.js + Socket.io
 
 ```javascript
-// Cliente (dashboard)
-socket.on('telemetry', (data) => {
-  updateRPM(data.rpm);
-  updateConsumption(data.consumption);
-  // Actualizar cada 16.66ms (60 FPS)
-});
 ```
 
 ### 2. **Server-Sent Events (SSE)** (Alternativa más ligera)
@@ -185,12 +176,12 @@ socket.on('telemetry', (data) => {
 
 | Capa | Herramienta | Razón |
 
-| **Gráficos** | Chart.js | Rendimiento real-time |
-| **UI** | Vanilla CSS + JavaScript | Ya optimizado, sin overhead |
-| **Datos Real-time** | Socket.io | Confiable y eficiente |
-| **Backend** | Node.js + Express | Ligero, JS everywhere |
-| **Serialización** | MessagePack (opcional) | Comprime payload |
-| **DevTools** | Chrome Lightouse | Monitoreo de performance |
+| **Gráficos**        | Chart.js                 | Rendimiento real-time       |
+| **UI**              | Vanilla CSS + JavaScript | Ya optimizado, sin overhead |
+| **Datos Real-time** | Socket.io                | Confiable y eficiente       |
+| **Backend**         | Node.js + Express        | Ligero, JS everywhere       |
+| **Serialización**   | MessagePack (opcional)   | Comprime payload            |
+| **DevTools**        | Chrome Lightouse         | Monitoreo de performance    |
 
 ---
 
@@ -198,12 +189,12 @@ socket.on('telemetry', (data) => {
 
 | Nombre | Tamaño | Aprendizaje | Performance | Para tu caso |
 
-| Vanilla CSS/JS | ~0KB | Bajo | Máximo | ✅ USAR |
-| Chart.js | 30KB | Muy Bajo | Alto | ✅ CONSIDERAR |
-| Vue.js | 34KB | Medio | Alto | ⚠️ No necesario aún |
-| D3.js | 150KB | Alto | Muy Alto | ❌ Overkill |
-| React | 42KB | Medio-Alto | Alto | ❌ Overkill |
-| Angular | 100KB+ | Alto | Medio | ❌ Overkill |
+| Vanilla CSS/JS | ~0KB   | Bajo       | Máximo   | ✅ USAR              |
+| Chart.js       | 30KB   | Muy Bajo   | Alto     | ✅ CONSIDERAR        |
+| Vue.js         | 34KB   | Medio      | Alto     | ⚠️ No necesario aún |
+| D3.js          | 150KB  | Alto       | Muy Alto | ❌ Overkill          |
+| React          | 42KB   | Medio-Alto | Alto     | ❌ Overkill          |
+| Angular        | 100KB+ | Alto       | Medio    | ❌ Overkill          |
 
 ---
 
@@ -242,4 +233,5 @@ socket.on('telemetry', (data) => {
 3. **Opcionalmente Chart.js** — solo si necesitas más gráficos complejos
 4. **Ejecuta `run_tests.bat`** tras cambios en telemetría o gauges
 
-**Prioridad inmediata:** TensorFlow.js para recomendaciones IA (Fase 3) y optimización de payload con MessagePack.
+**Prioridad inmediata:** TensorFlow.js para recomendaciones IA (Fase 3) y optimización de payload
+con MessagePack.

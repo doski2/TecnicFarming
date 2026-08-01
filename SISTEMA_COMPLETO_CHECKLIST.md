@@ -40,8 +40,6 @@ Usa este checklist para verificar que todo está correctamente configurado.
 ### Iniciar
 
 ```bash
-cd Dashboard/backend
-npm start
 ```
 
 Deberías ver:
@@ -69,8 +67,6 @@ Deberías ver:
 ### En Chrome DevTools Console
 
 ```javascript
-// Verificar conexión
-telemetryClient.isConnected  // Debe ser: true
 ```
 
 - [ ] `telemetryClient.isConnected` es **true**
@@ -109,7 +105,6 @@ Todos los documentos accesibles:
 ## ✅ Tests Automatizados
 
 ```bat
-run_tests.bat
 ```
 
 - [ ] Suite 1/4 — Backend (`npm test`) — 7 tests OK
