@@ -12,6 +12,8 @@
   var scripts = [
     './js/gauge.js',
     './js/uplot.min.js',
+    './js/modules/work-types.js',
+    './js/modules/telemetry-ui.js',
     './js/telemetry-client.js',
     './js/modules/dashboard-clock.js',
     './js/modules/dashboard-terrain.js',

@@ -117,11 +117,11 @@ Node.js** al momento de guardar el JSONL, sin necesidad de modificar el Lua:
 
 Cuando `frontAxleRatio` esté disponible en la telemetría, se pueden añadir alertas en el dashboard:
 
-| Condición               | Alerta                                                |
-| ----------------------- | ----------------------------------------------------- |
+| Condición               | Alerta                                                 |
+| ----------------------- | ------------------------------------------------------ |
 | `frontAxleRatio < 0.25` | ⚠ Eje delantero muy descargado — peligro de dirección |
-| `frontAxleRatio < 0.30` | Considerar contrapesos frontales                      |
-| `frontAxleRatio > 0.58` | Eje trasero descargado — revisar distribución         |
+| `frontAxleRatio < 0.30` | Considerar contrapesos frontales                       |
+| `frontAxleRatio > 0.58` | Eje trasero descargado — revisar distribución          |
 
 ---
 

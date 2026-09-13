@@ -45,7 +45,7 @@ TecnicFarming/
 | +-- server.js                     # Express + Socket.io + Named Pipe |                                                                                 |                                                                           |
 | +-- package.json                                                     |                                                                                 |                                                                           |
 | +-- Tests/                                                           |                                                                                 |                                                                           |
-|                                                                      | +-- telemetry.test.js         # Tests unitarios TelemetryService                |                                                                           |
+|                                                                      | +-- telemetry.test.js         # 17 tests TelemetryService (suite unificada)     |                                                                           |
 | +-- src/                                                             |                                                                                 |                                                                           |
 |                                                                      | +-- services/                                                                   |                                                                           |
 |                                                                      | +-- telemetry.js          # Lectura Named Pipe, parseo y logging                |                                                                           |
@@ -56,7 +56,7 @@ TecnicFarming/
 +-- Scripts/                              # Analisis y tests de telemetria
 
 | +-- analyze_session.py                # Procesa JSONL -> campo_profiles.json |
-| +-- test_telemetry.js                 # 28 tests de parseo y logging         |
+| +-- test_telemetry.js                 # Deprecado → npm test en backend      |
 | +-- test_analyze_session.py           # 20 tests del analizador              |
 
 +-- Tests/                                # Tests frontend y simulador
@@ -80,7 +80,7 @@ TecnicFarming/
 | +-- GUIA_DATOS_TELEMETRIA.md                                  |
 
 |
-+-- run_tests.bat                         # Ejecuta las 4 suites (58 tests)
++-- run_tests.bat                         # Ejecuta las 3 suites (43 tests)
 +-- start.bat                             # Arranque rapido (backend + navegador)
 +-- README.md
 +-- ESTRUCTURA_PROYECTO.md                <- Este archivo
@@ -132,7 +132,7 @@ FS25 -> Named Pipe \\.\pipe\SHTelemetry -> telemetry.js -> Socket.io /telemetry 
 
 | Carpeta / archivo                  | Descripcion                                 |
 | ---------------------------------- | ------------------------------------------- |
-| `run_tests.bat`                    | Ejecuta 58 tests en 4 suites                |
+| `run_tests.bat`                    | Ejecuta 43 tests en 3 suites                |
 | `Tests/frontend_logic.test.js`     | Tests de logica de gauges                   |
 | `Tests/mock_telemetry_provider.js` | Simulador de telemetria sin FS25            |
 | `Scripts/analyze_session.py`       | Analiza sesiones JSONL y actualiza perfiles |

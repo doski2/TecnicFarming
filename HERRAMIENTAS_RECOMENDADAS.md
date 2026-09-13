@@ -92,7 +92,7 @@
 - **Ventajas:**
   - Fallback automático (WebSocket → HTTPLongPolling → etc)
   - Compression automático
-  - Perfecto para conexión FSTelemetry → Dashboard
+  - Perfecto para conexión SHTelemetry → Dashboard
   - Latencia ~50ms
 - **Servidor:** Node.js + Socket.io
 
@@ -122,7 +122,7 @@
 
 ### Testing
 
-├── `run_tests.bat` — 58 tests en 4 suites
+├── `run_tests.bat` — 43 tests en 3 suites
 ├── `Tests/mock_telemetry_provider.js` — Simulador sin FS25
 └── Python unittest — `Scripts/test_analyze_session.py`
 
@@ -149,7 +149,7 @@
                      │ Named Pipe
                      ↓
 ┌─────────────────────────────────────────────────────┐
-│  FSTelemetry.lua + MoreRealistic_FS25               │
+│  SHTelemetry.lua + MoreRealistic_FS25               │
 │  (Exporta 60 FPS ~ 16.66ms)                        │
 └────────────────────┬────────────────────────────────┘
                      │ Named Pipe → Lectura
@@ -208,7 +208,7 @@
 - [x] Socket.io WebSocket ✅
 - [x] Grabación de sesiones JSONL ✅
 - [x] Análisis Python (`analyze_session.py`) ✅
-- [x] Suite de tests automatizada (58 tests) ✅
+- [x] Suite de tests automatizada (43 tests) ✅
 
 ### Fase 2
 

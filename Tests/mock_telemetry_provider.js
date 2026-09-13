@@ -1,75 +1,110 @@
 /**
  * Simulador de Telemetría SHTelemetry
- * Crea un Named Pipe y envía datos falsos para probar el Dashboard sin abrir FS25.
+ * Se conecta a la Named Pipe del backend (como hace el mod en FS25) y envía JSON.
+ *
+ * Uso:
+ *   1. Arranca el backend: cd Dashboard/backend && npm start
+ *   2. En otra terminal: node Tests/mock_telemetry_provider.js
  */
 import net from 'net';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { resolvePipeName } from '../Dashboard/backend/src/services/telemetry.js';
 
-const PIPE_NAME = '\\\\.\\pipe\\SHTelemetry';
-
-console.log('=== SIMULADOR DE TELEMETRÍA FS25 ===');
-console.log(`Creando Named Pipe: ${PIPE_NAME}`);
+config({ path: join(dirname(fileURLToPath(import.meta.url)), '../Dashboard/backend/.env') });
+const PIPE_NAME = resolvePipeName();
+const RETRY_MS = 2000;
 
 let rpm = 800;
 let speed = 0;
 let fuel = 100;
 let direction = 1;
+let interval = null;
 
-const server = net.createServer((socket) => {
-  console.log('✓ Cliente conectado al simulador (el backend se ha conectado)');
-  
-  const interval = setInterval(() => {
-    // Simular variación de datos
-    rpm += (Math.random() - 0.5) * 100 + (10 * direction);
-    if (rpm > 2200) direction = -1;
-    if (rpm < 800) direction = 1;
-    
-    speed = (rpm - 800) / 1400 * 50;
-    fuel -= 0.001;
+function buildPayload() {
+  rpm += (Math.random() - 0.5) * 100 + (10 * direction);
+  if (rpm > 2200) direction = -1;
+  if (rpm < 800) direction = 1;
+  speed = ((rpm - 800) / 1400) * 50;
+  fuel = Math.max(5, fuel - 0.001);
 
-    const telemetry = {
-      rpm: Math.round(rpm),
-      speed: speed,
-      fuelPercentage: fuel,
-      fuelLevel: fuel * 2,
-      fuelCapacity: 200,
-      vehicleName: "Fendt 724 (Simulado)",
-      motorLoad: (rpm / 2200) * 100,
-      accelerator: 50,
-      gearName: "12",
-      motorTemperature: 90,
-      isMotorStarted: true,
-      timestamp: Date.now(),
-      // Datos MR simulados
-      mrPowerBandMinRpm: 1200,
-      mrPowerBandMaxRpm: 1800,
-      mrPeakPowerRpm: 1700,
-      mrMinEcoRpm: 1400
-    };
+  return {
+    telemetrySource: 'mock',
+    rpm: Math.round(rpm),
+    speed,
+    fuelUsage: 8 + (rpm / 2200) * 20,
+    fuelPercentage: fuel,
+    fuelLevel: fuel * 2,
+    fuelCapacity: 200,
+    vehicleName: 'Fendt 724 (Simulado)',
+    motorLoad: (rpm / 2200) * 100,
+    accelerator: 50,
+    gearName: '12',
+    transmissionType: 'manual',
+    workType: 'TRANSPORT',
+    implementLowered: false,
+    implementName: '',
+    motorTemperature: 90,
+    isMotorStarted: true,
+    timestamp: Date.now(),
+    mrPowerBandMinRpm: 1200,
+    mrPowerBandMaxRpm: 1800,
+    mrPeakPowerRpm: 1700,
+    mrMinEcoRpm: 1400
+  };
+}
 
-    try {
-      socket.write(JSON.stringify(telemetry) + '\n');
-    } catch (err) {
-      console.error('Error enviando datos:', err.message);
-      clearInterval(interval);
-    }
-  }, 100); // 10 Hz
+function connectAsGame() {
+  console.log('=== SIMULADOR DE TELEMETRÍA FS25 ===');
+  console.log(`Conectando a ${PIPE_NAME} (como cliente, igual que SHTelemetry.lua)...`);
 
-  socket.on('end', () => {
-    console.log('✗ Cliente desconectado');
-    clearInterval(interval);
+  const socket = net.connect(PIPE_NAME, () => {
+    console.log('✓ Conectado al backend — enviando telemetría simulada (~10 Hz)');
+    if (interval) clearInterval(interval);
+    interval = setInterval(() => {
+      try {
+        socket.write(`${JSON.stringify(buildPayload())}\n`);
+      } catch (err) {
+        console.error('Error enviando datos:', err.message);
+        cleanup();
+        scheduleReconnect();
+      }
+    }, 100);
   });
 
   socket.on('error', (err) => {
-    console.error('Error en socket:', err.message);
-    clearInterval(interval);
+    console.error(`✗ No se pudo conectar (${err.message}). ¿Está el backend en marcha?`);
+    cleanup();
+    scheduleReconnect();
   });
-});
 
-server.listen(PIPE_NAME, () => {
-  console.log('🚀 Simulador escuchando. Abre el backend para empezar a recibir datos.');
-});
+  socket.on('end', () => {
+    console.log('✗ Pipe cerrada por el backend');
+    cleanup();
+    scheduleReconnect();
+  });
+
+  socket.on('close', () => {
+    cleanup();
+  });
+}
+
+function cleanup() {
+  if (interval) {
+    clearInterval(interval);
+    interval = null;
+  }
+}
+
+function scheduleReconnect() {
+  console.log(`Reintentando en ${RETRY_MS / 1000}s...`);
+  setTimeout(connectAsGame, RETRY_MS);
+}
+
+connectAsGame();
 
 process.on('SIGINT', () => {
-  server.close();
-  process.exit();
+  cleanup();
+  process.exit(0);
 });

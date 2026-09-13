@@ -67,7 +67,7 @@ cd Dashboard\backend
 npm audit fix      # ws 8.21.0, engine.io 6.6.9, socket.io-adapter 2.5.8
 npm install        # Sincronizar lockfile con package.json
 npm audit          # 0 vulnerabilidades
-npm test           # 7 tests OK
+npm test           # 17 tests OK
 ```
 
 ### Compatibilidad verificada
@@ -79,7 +79,7 @@ npm test           # 7 tests OK
 | `socket.io` namespace `/telemetry`   | ✅ Sin cambios de API en 4.8.3               |
 | `dotenv.config()`                    | ✅ Compatible con 16.6.1                     |
 | `TelemetryService` (Named Pipe)      | ✅ Solo APIs nativas de Node (`net`, `fs`)   |
-| Node test runner (`node --test`)     | ✅ 7 tests pasan                             |
+| Node test runner (`node --test`)     | ✅ 17 tests pasan                            |
 
 ### Recomendaciones (sin aplicar)
 

@@ -50,10 +50,13 @@ class GaugeAnimator {
     // Rotate needle (SVG center is 160,160)
     const translateX = 160;
     const translateY = 160;
-    this.needleGroup.setAttribute('transform', `rotate(${angle} ${translateX} ${translateY})`);
+    if (this.needleGroup) {
+      this.needleGroup.setAttribute('transform', `rotate(${angle} ${translateX} ${translateY})`);
+    }
 
-    // Update RPM display
-    this.rpmDisplay.textContent = Math.round(this.currentRPM).toString();
+    if (this.rpmDisplay) {
+      this.rpmDisplay.textContent = Math.round(this.currentRPM).toString();
+    }
 
     this.animationId = requestAnimationFrame(() => this.animate());
   }
@@ -77,12 +80,17 @@ class GaugeAnimator {
     const translateX = 160;
     const translateY = 160;
 
-    this.ecoLineGroup.setAttribute('transform', `rotate(${ecoAngle} ${translateX} ${translateY})`);
-    this.optLineGroup.setAttribute('transform', `rotate(${optAngle} ${translateX} ${translateY})`);
+    if (this.ecoLineGroup) {
+      this.ecoLineGroup.setAttribute('transform', `rotate(${ecoAngle} ${translateX} ${translateY})`);
+    }
+    if (this.optLineGroup) {
+      this.optLineGroup.setAttribute('transform', `rotate(${optAngle} ${translateX} ${translateY})`);
+    }
 
-    // Update zone displays
-    document.getElementById('zone-eco').textContent = ecoRPM.toString();
-    document.getElementById('zone-opt').textContent = optimalRPM.toString();
+    var ecoEl = document.getElementById('zone-eco');
+    var optEl = document.getElementById('zone-opt');
+    if (ecoEl) ecoEl.textContent = ecoRPM.toString();
+    if (optEl) optEl.textContent = optimalRPM.toString();
   }
 }
 

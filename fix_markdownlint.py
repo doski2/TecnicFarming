@@ -2,7 +2,7 @@
 """
 Corrige avisos auto-reparables de markdownlint en archivos .md.
 
-Reglas auto-fix: MD001, MD009, MD012, MD013, MD022, MD026, MD028, MD031, MD032, MD036, MD040, MD047, MD058, MD060.
+Reglas auto-fix: MD009, MD012, MD013, MD022, MD026, MD031, MD032, MD034, MD036, MD037, MD040, MD047, MD058, MD060.
 Índice completo: docs/MARKDOWNLINT.md · oficial: github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
 
 Uso:
@@ -13,12 +13,13 @@ Uso:
   python fix_markdownlint.py --lint
 
 Config: `.markdownlint.json` (raíz) + `.vscode/settings.json` (Cursor/VS Code).
-Ver reglas: https://github.com/DavidAnson/markdownlint/tree/v0.40.0/doc
+Ver reglas: https://github.com/DavidAnson/markdownlint/tree/v0.41.1/doc
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -35,11 +36,168 @@ MD036_ITALIC_STAR = re.compile(r"^\*([^*]+)\*$")
 MD036_ITALIC_UNDER = re.compile(r"^_([^_]+)_$")
 MD036_PUNCT_END = re.compile(r"[.,;:!?。，；：！？]$")
 HEADING = re.compile(r"^(#{1,6})\s+")
+HEADING_BOLD_COLON = re.compile(r"^(#{1,6})\s+([^:\n]+):\*\*\s*(.+)$")
+MD037_EMPHASIS_STAR = re.compile(r"(?<!\*)\*([^*\n]+?)\*(?!\*)")
+MD037_EMPHASIS_DBL = re.compile(r"(?<!\*)\*\*([^*\n]+?)\*\*(?!\*)")
+MD037_EMPHASIS_UNDER = re.compile(r"(?<!_)_([^_\n]+?)_(?!_)")
+MD037_EMPHASIS_DUNDER = re.compile(r"(?<!_)__([^_\n]+?)__(?!_)")
 FENCE = re.compile(r"^```(\w*)$")
 DELIMITER_CELL = re.compile(r"^:?-{1,}:?$")
 TRAILING_PUNCT = re.compile(r"[:.,;!?]+$")
 LIST_ITEM = re.compile(r"^(\s*)([-*+]|\d+\.)\s")
 TABLE_ROW = re.compile(r"^\s*\|")
+MD034_TRAILING_PUNCT = re.compile(r"[.,;:!?]+$")
+MD034_SHIELD_PATTERNS = (
+    re.compile(r"!\[[^\]]*\]\([^)]*\)"),
+    re.compile(r"\[[^\]]*\]\([^)]*\)"),
+    re.compile(r"\[https?://[^\]]+\]"),
+    re.compile(r"<https?://[^>]+>"),
+    re.compile(r"<mailto:[^>]+>"),
+    re.compile(r"<[\w.+-]+@[^>]+>"),
+)
+MD034_BARE_URL = re.compile(r"https?://[^\s<>\[\]()]+(?:\([^\s)]*\))?[^\s<>\[\].,;:!?]*")
+MD034_BARE_EMAIL = re.compile(r"(?<![</\w])([\w.+-]+@[\w.-]+\.[A-Za-z]{2,})")
+MD060_VISUAL_WIDE = re.compile(r"[\u2600-\u27BF\U0001F300-\U0001FAFF]")
+MD060_DEFAULTS = {"style": "any", "aligned_delimiter": False}
+
+
+def load_md060_config() -> dict[str, str | bool]:
+    """
+    MD060 — style (any|aligned|compact|tight) y aligned_delimiter.
+    https://github.com/DavidAnson/markdownlint/blob/v0.41.1/doc/md060.md
+    """
+    path = ROOT / ".markdownlint.json"
+    if not path.is_file():
+        return dict(MD060_DEFAULTS)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return dict(MD060_DEFAULTS)
+    md060 = data.get("MD060", {})
+    if isinstance(md060, bool):
+        return dict(MD060_DEFAULTS) if md060 else {"style": "any", "aligned_delimiter": False}
+    return {
+        "style": str(md060.get("style", MD060_DEFAULTS["style"])),
+        "aligned_delimiter": bool(
+            md060.get("aligned_delimiter", MD060_DEFAULTS["aligned_delimiter"])
+        ),
+    }
+
+
+def char_display_width(ch: str) -> int:
+    """Ancho visual (emoji/CJK = 2) como string-width en markdownlint."""
+    if unicodedata.east_asian_width(ch) in ("F", "W"):
+        return 2
+    if MD060_VISUAL_WIDE.match(ch):
+        return 2
+    return 1
+
+
+def display_width(text: str) -> int:
+    return sum(char_display_width(c) for c in text)
+
+
+def pad_to_display_width(text: str, target: int) -> str:
+    return text + (" " * max(0, target - display_width(text)))
+
+
+def pipe_columns(line: str) -> list[int]:
+    """Columnas efectivas (1-based) de cada | en la línea."""
+    cols: list[int] = []
+    effective = 0
+    for ch in line:
+        if ch == "|":
+            cols.append(effective + 1)
+        effective += char_display_width(ch)
+    return cols
+
+
+def count_aligned_violations(lines: list[str]) -> int:
+    if len(lines) < 2:
+        return 0
+    header_cols = set(pipe_columns(lines[0]))
+    violations = 0
+    for line in lines[1:]:
+        row_cols = pipe_columns(line)
+        remaining = set(header_cols)
+        for col in row_cols:
+            if remaining and col not in remaining:
+                violations += 1
+            elif col in remaining:
+                remaining.discard(col)
+    return violations
+
+
+def compact_cell_content(text: str) -> str:
+    """MD060 compact — un espacio alrededor; celda vacía → un solo espacio."""
+    return f" {text} " if text else " "
+
+
+def is_compact_cell(part: str) -> bool:
+    return part == compact_cell_content(part.strip())
+
+
+def count_compact_violations(lines: list[str], aligned_delimiter: bool) -> int:
+    violations = 0
+    if aligned_delimiter and len(lines) >= 2:
+        violations += count_aligned_violations(lines[:2])
+    for line in lines:
+        inner = line.strip()
+        if not inner.startswith("|"):
+            continue
+        parts = inner.split("|")
+        for part in parts[1:-1]:
+            if not is_compact_cell(part):
+                violations += 1
+    return violations
+
+
+def count_tight_violations(lines: list[str], aligned_delimiter: bool) -> int:
+    violations = 0
+    if aligned_delimiter and len(lines) >= 2:
+        violations += count_aligned_violations(lines[:2])
+    for line in lines:
+        inner = line.strip()
+        if not inner.startswith("|"):
+            continue
+        parts = inner.split("|")
+        for part in parts[1:-1]:
+            if part.strip() != part or " " in part:
+                violations += 1
+    return violations
+
+
+def md060_style_scores(
+    lines: list[str], aligned_delimiter: bool
+) -> dict[str, int]:
+    return {
+        "aligned": count_aligned_violations(lines),
+        "compact": count_compact_violations(lines, aligned_delimiter),
+        "tight": count_tight_violations(lines, aligned_delimiter),
+    }
+
+
+def pick_md060_style(
+    lines: list[str], config: dict[str, str | bool]
+) -> str:
+    style = str(config.get("style", "any"))
+    aligned_delimiter = bool(config.get("aligned_delimiter", False))
+    if style != "any":
+        return style
+    scores = md060_style_scores(lines, aligned_delimiter)
+    return min(scores, key=lambda k: scores[k])
+
+
+def table_needs_md060_fix(
+    lines: list[str], config: dict[str, str | bool]
+) -> bool:
+    """True si la tabla no cumple ningún estilo MD060 (style=any) o el configurado."""
+    configured_style = str(config.get("style", "any"))
+    aligned_delimiter = bool(config.get("aligned_delimiter", False))
+    if configured_style != "any":
+        scores = md060_style_scores(lines, aligned_delimiter)
+        return scores[configured_style] > 0
+    return min(md060_style_scores(lines, aligned_delimiter).values()) > 0
 
 
 def parse_table_cells(line: str) -> list[str] | None:
@@ -60,22 +218,12 @@ def is_delimiter_row(cells: list[str]) -> bool:
     )
 
 
-def char_display_width(ch: str) -> int:
-    if unicodedata.category(ch) == "So":
-        return 2
-    east = unicodedata.east_asian_width(ch)
-    return 2 if east in ("W", "F") else 1
-
-
-def display_width(text: str) -> int:
-    return sum(char_display_width(ch) for ch in text)
-
-
-def pad_display(text: str, width: int) -> str:
-    return text + " " * max(width - display_width(text), 0)
-
-
 def format_aligned_table(rows: list[list[str]]) -> list[str]:
+    """
+    MD060 style aligned — tuberías alineadas por ancho visual (emoji/CJK).
+
+    https://github.com/DavidAnson/markdownlint/blob/v0.41.1/doc/md060.md
+    """
     if not rows:
         return []
     col_count = max(len(row) for row in rows)
@@ -91,27 +239,73 @@ def format_aligned_table(rows: list[list[str]]) -> list[str]:
             if is_delimiter_row(row)
             else [row[col] for col in range(col_count)]
         )
-        padded = [f" {pad_display(cell, widths[i])} " for i, cell in enumerate(cells)]
+        padded = [f" {pad_to_display_width(cell, widths[i])} " for i, cell in enumerate(cells)]
         lines.append("|" + "|".join(padded) + "|")
     return lines
 
 
-def fix_tables(text: str) -> tuple[str, int]:
+def format_compact_table(
+    rows: list[list[str]], aligned_delimiter: bool = False
+) -> list[str]:
+    if not rows:
+        return []
+    col_count = max(len(row) for row in rows)
+    normalized = [row + [""] * (col_count - len(row)) for row in rows]
+    if aligned_delimiter:
+        return format_aligned_table(normalized)
+    lines: list[str] = []
+    for row in normalized:
+        if is_delimiter_row(row):
+            cells = [compact_cell_content("---") for _ in range(col_count)]
+        else:
+            cells = [compact_cell_content(row[col]) for col in range(col_count)]
+        lines.append("|" + "|".join(cells) + "|")
+    return lines
+
+
+def format_tight_table(
+    rows: list[list[str]], aligned_delimiter: bool = False
+) -> list[str]:
+    if not rows:
+        return []
+    col_count = max(len(row) for row in rows)
+    normalized = [row + [""] * (col_count - len(row)) for row in rows]
+    if aligned_delimiter:
+        aligned = format_aligned_table(normalized)
+        compact_delim = format_compact_table(normalized, aligned_delimiter=False)
+        if len(aligned) > 1 and len(compact_delim) > 1:
+            aligned[1] = compact_delim[1]
+        return aligned
+    lines: list[str] = []
+    for row in normalized:
+        if is_delimiter_row(row):
+            cells = ["---" for _ in range(col_count)]
+        else:
+            cells = [row[col] for col in range(col_count)]
+        lines.append("|" + "|".join(cells) + "|")
+    return lines
+
+
+def format_table_block(
+    rows: list[list[str]], style: str, aligned_delimiter: bool
+) -> list[str]:
+    if style == "compact":
+        return format_compact_table(rows, aligned_delimiter)
+    if style == "tight":
+        return format_tight_table(rows, aligned_delimiter)
+    return format_aligned_table(rows)
+
+
+def fix_tables(text: str, md060: dict[str, str | bool] | None = None) -> tuple[str, int]:
+    if md060 is None:
+        md060 = load_md060_config()
+    configured_style = str(md060.get("style", "any"))
+    aligned_delimiter = bool(md060.get("aligned_delimiter", False))
     lines = text.splitlines()
     out: list[str] = []
     i = 0
     fixes = 0
-    in_fence = False
     while i < len(lines):
-        if FENCE.match(lines[i].strip()):
-            in_fence = not in_fence
-            out.append(lines[i])
-            i += 1
-            continue
-        if in_fence:
-            out.append(lines[i])
-            i += 1
-            continue
         cells = parse_table_cells(lines[i])
         if cells is None:
             out.append(lines[i])
@@ -121,82 +315,24 @@ def fix_tables(text: str) -> tuple[str, int]:
         block: list[list[str]] = [cells]
         i += 1
         while i < len(lines):
-            if FENCE.match(lines[i].strip()):
-                break
             next_cells = parse_table_cells(lines[i])
             if next_cells is None:
                 break
             block.append(next_cells)
             i += 1
-        formatted = format_aligned_table(block)
-        if formatted != lines[start:i]:
+        block_lines = lines[start:i]
+        if not table_needs_md060_fix(block_lines, md060):
+            out.extend(block_lines)
+            continue
+        style = (
+            configured_style
+            if configured_style != "any"
+            else pick_md060_style(block_lines, md060)
+        )
+        formatted = format_table_block(block, style, aligned_delimiter)
+        if formatted != block_lines:
             fixes += 1
         out.extend(formatted)
-    return "\n".join(out), fixes
-
-
-def is_blockquote_line(line: str) -> bool:
-    return line.strip().startswith(">")
-
-
-def fix_blockquote_blanks(text: str) -> tuple[str, int]:
-    """MD028 — sin líneas en blanco dentro de blockquotes."""
-    lines = text.splitlines()
-    out: list[str] = []
-    fixes = 0
-    in_fence = False
-
-    for i, line in enumerate(lines):
-        if FENCE.match(line.strip()):
-            in_fence = not in_fence
-            out.append(line)
-            continue
-        if in_fence:
-            out.append(line)
-            continue
-
-        if line.strip() == "" and out and i + 1 < len(lines):
-            if is_blockquote_line(out[-1]) and is_blockquote_line(lines[i + 1]):
-                fixes += 1
-                continue
-
-        out.append(line)
-
-    return "\n".join(out), fixes
-
-
-def fix_heading_increment(text: str) -> tuple[str, int]:
-    """MD001 — los niveles de encabezado solo suben de uno en uno."""
-    lines = text.splitlines()
-    out: list[str] = []
-    fixes = 0
-    in_fence = False
-    last_level = 0
-
-    for line in lines:
-        if FENCE.match(line.strip()):
-            in_fence = not in_fence
-            out.append(line)
-            continue
-        if in_fence:
-            out.append(line)
-            continue
-
-        match = HEADING.match(line)
-        if not match:
-            out.append(line)
-            continue
-
-        level = len(match.group(1))
-        if last_level > 0 and level > last_level + 1:
-            level = last_level + 1
-            title = line[match.end():]
-            out.append("#" * level + title)
-            fixes += 1
-        else:
-            out.append(line)
-        last_level = level
-
     return "\n".join(out), fixes
 
 
@@ -211,6 +347,93 @@ def infer_fence_language(block_lines: list[str]) -> str:
     if re.search(r"^\s*(npm |npx |git )", sample, re.M):
         return "bash"
     return "text"
+
+
+def _md034_strip_trailing(url: str) -> tuple[str, str]:
+    trail = ""
+    while url:
+        punct = MD034_TRAILING_PUNCT.search(url)
+        if not punct:
+            break
+        trail = punct.group(0) + trail
+        url = url[: punct.start()]
+    if url.endswith(")") and url.count("(") < url.count(")"):
+        trail = ")" + trail
+        url = url[:-1]
+    return url, trail
+
+
+def _md034_shield_links(segment: str) -> tuple[str, list[str]]:
+    shields: list[str] = []
+
+    def shield(match: re.Match[str]) -> str:
+        shields.append(match.group(0))
+        return f"\x00S{len(shields) - 1}\x00"
+
+    work = segment
+    for pattern in MD034_SHIELD_PATTERNS:
+        work = pattern.sub(shield, work)
+    return work, shields
+
+
+def _md034_unshield(segment: str, shields: list[str]) -> str:
+    for idx, original in enumerate(shields):
+        segment = segment.replace(f"\x00S{idx}\x00", original)
+    return segment
+
+
+def fix_bare_urls_in_segment(segment: str) -> tuple[str, int]:
+    """
+    MD034 — URLs y correos sin <> → <url> / <email>.
+    https://github.com/DavidAnson/markdownlint/blob/v0.41.1/doc/md034.md
+    """
+    work, shields = _md034_shield_links(segment)
+    fixes = 0
+
+    def wrap_url(match: re.Match[str]) -> str:
+        nonlocal fixes
+        url, trail = _md034_strip_trailing(match.group(0))
+        if not url:
+            return match.group(0)
+        fixes += 1
+        return f"<{url}>{trail}"
+
+    work = MD034_BARE_URL.sub(wrap_url, work)
+
+    def wrap_email(match: re.Match[str]) -> str:
+        nonlocal fixes
+        fixes += 1
+        return f"<{match.group(1)}>"
+
+    work = MD034_BARE_EMAIL.sub(wrap_email, work)
+    return _md034_unshield(work, shields), fixes
+
+
+def fix_bare_urls(text: str) -> tuple[str, int]:
+    """MD034 — no envolver URLs en bloques de código ni en spans `inline`."""
+    lines = text.splitlines()
+    out: list[str] = []
+    fixes = 0
+    in_fence = False
+    for line in lines:
+        if FENCE.match(line.strip()):
+            in_fence = not in_fence
+            out.append(line)
+            continue
+        if in_fence:
+            out.append(line)
+            continue
+        parts = line.split("`")
+        new_parts: list[str] = []
+        for idx, part in enumerate(parts):
+            if idx % 2 == 1:
+                new_parts.append(part)
+            else:
+                fixed, n = fix_bare_urls_in_segment(part)
+                fixes += n
+                new_parts.append(fixed)
+        out.append("`".join(new_parts))
+    return "\n".join(out), fixes
 
 
 def fix_fenced_code_language_v2(text: str) -> tuple[str, int]:
@@ -282,6 +505,93 @@ def parse_emphasis_heading(line: str) -> str | None:
     return None
 
 
+def fix_heading_bold_colon_artifacts(text: str) -> tuple[str, int]:
+    """
+    Encabezados corruptos tipo `## OCR:** párrafo` → título + párrafo con **OCR:**.
+    Corrige MD022 (línea en blanco bajo el heading) y MD037 (marcadores `: **`).
+    """
+    lines = text.splitlines()
+    out: list[str] = []
+    fixes = 0
+    in_fence = False
+    for line in lines:
+        if FENCE.match(line.strip()):
+            in_fence = not in_fence
+            out.append(line)
+            continue
+        if in_fence:
+            out.append(line)
+            continue
+        match = HEADING_BOLD_COLON.match(line)
+        if not match:
+            out.append(line)
+            continue
+        level, title, body = match.groups()
+        title = title.strip()
+        out.append(f"{level} {title}")
+        out.append("")
+        out.append(f"**{title}:** {body}")
+        fixes += 1
+    return "\n".join(out), fixes
+
+
+def _replace_emphasis_if_spaced(marker: str, inner: str) -> str | None:
+    trimmed = inner.strip()
+    if trimmed == inner:
+        return None
+    return f"{marker}{trimmed}{marker}"
+
+
+def fix_emphasis_spaces(text: str) -> tuple[str, int]:
+    """MD037 — espacios dentro de marcadores de énfasis (* foo * → *foo*)."""
+    lines = text.splitlines()
+    out: list[str] = []
+    fixes = 0
+    in_fence = False
+    for line in lines:
+        if FENCE.match(line.strip()):
+            in_fence = not in_fence
+            out.append(line)
+            continue
+        if in_fence or is_heading_line(line):
+            out.append(line)
+            continue
+        new_line = line
+
+        def repl_star(match: re.Match[str]) -> str:
+            replaced = _replace_emphasis_if_spaced("*", match.group(1))
+            return replaced if replaced is not None else match.group(0)
+
+        def repl_dbl(match: re.Match[str]) -> str:
+            replaced = _replace_emphasis_if_spaced("**", match.group(1))
+            return replaced if replaced is not None else match.group(0)
+
+        def repl_under(match: re.Match[str]) -> str:
+            replaced = _replace_emphasis_if_spaced("_", match.group(1))
+            return replaced if replaced is not None else match.group(0)
+
+        def repl_dunder(match: re.Match[str]) -> str:
+            replaced = _replace_emphasis_if_spaced("__", match.group(1))
+            return replaced if replaced is not None else match.group(0)
+
+        for pattern, repl in (
+            (MD037_EMPHASIS_DBL, repl_dbl),
+            (MD037_EMPHASIS_STAR, repl_star),
+            (MD037_EMPHASIS_DUNDER, repl_dunder),
+            (MD037_EMPHASIS_UNDER, repl_under),
+        ):
+            updated = pattern.sub(repl, new_line)
+            if updated != new_line:
+                fixes += 1
+                new_line = updated
+        out.append(new_line)
+    return "\n".join(out), fixes
+
+
+def is_blank(line: str) -> bool:
+    return not line.strip()
+
+
 def next_non_blank_line(lines: list[str], idx: int) -> str | None:
     for j in range(idx + 1, len(lines)):
         if not is_blank(lines[j]):
@@ -322,10 +632,6 @@ def fix_trailing_spaces(text: str) -> tuple[str, int]:
     return "\n".join(out), fixes
 
 
-def is_blank(line: str) -> bool:
-    return not line.strip()
-
-
 def is_list_line(line: str) -> bool:
     return bool(LIST_ITEM.match(line))
 
@@ -361,15 +667,14 @@ def fix_blanks_around_blocks(text: str) -> tuple[str, int]:
         if is_heading_line(line):
             before = len(lines)
             ensure_blank_before(lines, i)
-            i += len(lines) - before + 1
+            heading_idx = i + (len(lines) - before)
             if len(lines) != before:
                 fixes += 1
-            if i < len(lines):
-                after_before = len(lines)
-                ensure_blank_after(lines, i)
-                if len(lines) != after_before:
-                    fixes += 1
-                i += len(lines) - after_before
+            after_before = len(lines)
+            ensure_blank_after(lines, heading_idx)
+            if len(lines) != after_before:
+                fixes += 1
+            i = heading_idx + 1 + (len(lines) - after_before)
             continue
 
         if is_fence_line(line):
@@ -532,19 +837,22 @@ def fix_line_length(text: str, width: int = MD013_WIDTH) -> tuple[str, int]:
 
 def fix_markdown(text: str) -> tuple[str, dict[str, int]]:
     stats: dict[str, int] = {}
+    md060 = load_md060_config()
     text, n = fix_trailing_spaces(text)
     stats["MD009"] = n
+    text, n = fix_bare_urls(text)
+    stats["MD034"] = n
     text, n = fix_line_length(text)
     stats["MD013"] = n
+    text, n = fix_heading_bold_colon_artifacts(text)
+    stats["MD022/037-heading"] = n
     text, n = fix_emphasis_headings(text)
     stats["MD036"] = n
-    text, n = fix_heading_increment(text)
-    stats["MD001"] = n
-    text, n = fix_blockquote_blanks(text)
-    stats["MD028"] = n
+    text, n = fix_emphasis_spaces(text)
+    stats["MD037"] = n
     text, n = fix_fenced_code_language_v2(text)
     stats["MD040"] = n
-    text, n = fix_tables(text)
+    text, n = fix_tables(text, md060)
     stats["MD060"] = n
     text, n = fix_blanks_around_blocks(text)
     stats["MD022/031/032/058"] = n

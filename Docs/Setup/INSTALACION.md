@@ -59,7 +59,7 @@ Edita `.env` con tus valores:
 ```env
 NODE_ENV=development
 SOCKET_IO_PORT=8080
-NAMED_PIPE_NAME=\\\\.\\pipe\\SHTelemetry
+NAMED_PIPE_NAME=SHTelemetry
 ```
 
 ### 5. Confirmar SHTelemetry en el Juego
@@ -104,7 +104,7 @@ automáticamente).
 - [ ] Servidor Backend en ejecución (`npm start`)
 - [ ] Dashboard abierto en navegador
 - [ ] Datos en vivo aparecen en el dashboard
-- [ ] `run_tests.bat` pasa los 58 tests (opcional pero recomendado)
+- [ ] `run_tests.bat` pasa los 43 tests (opcional pero recomendado)
 
 ### Solucionar Problemas
 
@@ -123,7 +123,7 @@ automáticamente).
 run_tests.bat
 ```
 
-Deben pasar las 4 suites (58 tests). Ver **[TESTING.md](./TESTING.md)** para detalle.
+Deben pasar las 3 suites (43 tests). Ver **[TESTING.md](./TESTING.md)** para detalle.
 
 ## 📝 Próximo Paso
 

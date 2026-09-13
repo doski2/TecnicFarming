@@ -41,16 +41,36 @@
     var statusEl = document.getElementById('connection-status');
     var dotEl = document.querySelector('.status-dot');
 
-    if (data.isRealData) {
-      if (statusEl) statusEl.textContent = '🟢 FS25 CONECTADO';
+    var isMock = data.telemetrySource === 'mock';
+    if (data.isRealData && isMock) {
+      if (statusEl) {
+        statusEl.textContent = '🟡 Simulado · ' + (data.vehicleName || 'mock');
+        statusEl.title = 'Datos del simulador. Cierra mock_telemetry_provider para usar FS25.';
+      }
+      if (dotEl) dotEl.classList.add('connected');
+    } else if (data.isRealData) {
+      if (statusEl) {
+        statusEl.textContent = '🟢 FS25 · ' + (data.vehicleName || 'en vivo');
+        statusEl.title = 'Telemetría en tiempo real desde Farming Simulator 25';
+      }
       if (dotEl) dotEl.classList.add('connected');
     } else {
-      if (statusEl) statusEl.textContent = '🔴 Esperando FS25...';
+      if (statusEl) {
+        statusEl.textContent = '⏳ Sin telemetría FS25';
+        statusEl.title = 'Arranca FS25 con SHTelemetry activo (o start_with_mock.bat para pruebas)';
+      }
       if (dotEl) dotEl.classList.remove('connected');
     }
 
-    // Badge de grabación en topnav — se actualiza siempre, sea cual sea la pestaña activa
-    var recording = data.implementLowered && Math.abs(data.speed || 0) > 0.3;
+    var hintEl = document.getElementById('trabajo-pipe-hint');
+    if (hintEl) {
+      hintEl.hidden = !!data.isRealData;
+      if (isMock) {
+        hintEl.textContent = 'Estás viendo datos simulados. Para FS25 real, cierra la ventana "FS25 Mock Telemetry".';
+      }
+    }
+
+    var recording = window.TelemetryUI ? window.TelemetryUI.isRecording(data) : false;
     var navRecEl = document.getElementById('nav-rec-status');
     if (navRecEl) {
       navRecEl.textContent = recording ? '● GRABANDO' : '● EN ESPERA';
@@ -272,21 +292,9 @@
       }
     }
 
-    // Marcha: CVT → "CVT"; manual/auto → grupo+marcha (ej: "A3") o solo marcha
-    var trans        = data.transmissionType || 'manual';
-    var gearDisplay;
-    if (trans === 'cvt') {
-      gearDisplay = 'CVT';
-    } else {
-      var grp = data.gearGroupName || '';
-      var g   = data.currentGear  || 'N';
-      // Evitar duplicar si el gearName ya incluye el grupo (ej: "A1")
-      if (grp && String(g).indexOf(grp) !== 0) {
-        gearDisplay = grp + g;
-      } else {
-        gearDisplay = g || 'N';
-      }
-    }
+    var gearDisplay = window.TelemetryUI
+      ? window.TelemetryUI.formatGearDisplay(data)
+      : (data.currentGear || 'N');
 
     var telemGearEl = document.getElementById('telem-gear');
     if (telemGearEl) {
@@ -315,7 +323,9 @@
       telemWeightEl.textContent = totalWeightT.toFixed(1);
     }
 
-    var slipPercent = Math.round((data.mrAvgDrivenWheelsSlip || 0) * 100);
+    var slipPercent = window.TelemetryUI
+      ? window.TelemetryUI.slipPercent(data)
+      : Math.round((data.mrAvgDrivenWheelsSlip || 0) * 100);
 
     // Horizonte artificial — pitch y roll
     var pitchDeg = data.pitch || 0;
@@ -586,21 +596,10 @@
     var wSumEl   = document.getElementById('ia-work-summary');
     var wSumVal  = document.getElementById('ia-work-summary-value');
     var hasImpl  = (data.implementsAttached || 0) > 0;
-    var workTypeMap = {
-      'HARVESTER':   'Cosechadora',
-      'SOWER':       'Sembradora',
-      'SPRAYER':     'Pulverizadora',
-      'FERTILIZER':  'Abonadora',
-      'PLOW':        'Arado',
-      'CULTIVATOR':  'Cultivador',
-      'MOWER':       'Segadora',
-      'BALER':       'Empacadora',
-      'TRANSPORT':   'Transporte',
-      'FIELDWORK':   'Trabajo de Campo',
-      'UNKNOWN':     'Implemento'
-    };
     var rawType = (data.workType || 'UNKNOWN');
-    var workTypeLabel = workTypeMap[rawType] || rawType;
+    var workTypeLabel = window.WorkTypes
+      ? window.WorkTypes.getLabel(rawType, 'label')
+      : rawType;
     var implDisplayName = (data.implementName || '').trim();
     if (wSumEl)  wSumEl.className  = 'ia-work-summary' + (hasImpl ? '' : ' inactive');
     if (wSumVal) wSumVal.textContent = hasImpl
@@ -643,7 +642,7 @@
 
     // Estado grabación: activo cuando implement lowered + vehículo en movimiento
     // (igual que el logger del backend); se iza antes del bloque para reutilizar abajo
-    var recording = data.implementLowered && Math.abs(data.speed || 0) > 0.3;
+    var recording = window.TelemetryUI ? window.TelemetryUI.isRecording(data) : false;
     var recText = recording ? '● GRABANDO' : '● EN ESPERA';
     var recClass = recording ? 'ia-badge active' : 'ia-badge ia-badge-wait';
     var recEl = document.getElementById('ia-rec-status');
@@ -663,20 +662,15 @@
     if (fuelEl) fuelEl.textContent = (data.fuelUsagePerHour || 0).toFixed(1);
 
     var slipEl = document.getElementById('ia-slip');
-    if (slipEl) slipEl.textContent = Math.round((data.mrAvgDrivenWheelsSlip || 0) * 100);
+    if (slipEl) {
+      slipEl.textContent = window.TelemetryUI
+        ? window.TelemetryUI.slipPercent(data)
+        : Math.round((data.mrAvgDrivenWheelsSlip || 0) * 100);
+    }
 
     var gearEl = document.getElementById('ia-gear');
-    if (gearEl) {
-      var trans2  = data.transmissionType || 'manual';
-      var grp2    = data.gearGroupName || '';
-      var g2      = data.currentGear  || 'N';
-      if (trans2 === 'cvt') {
-        gearEl.textContent = 'CVT';
-      } else if (grp2 && String(g2).indexOf(grp2) !== 0) {
-        gearEl.textContent = grp2 + g2;
-      } else {
-        gearEl.textContent = g2 || 'N';
-      }
+    if (gearEl && window.TelemetryUI) {
+      gearEl.textContent = window.TelemetryUI.formatGearDisplay(data);
     }
 
     // Contador de muestras grabadas en esta sesión
@@ -714,24 +708,9 @@
     var fuelLph = +(data.fuelUsagePerHour || 0);
     var fuelPct = +(data.fuelPercentage != null ? data.fuelPercentage : (data.fuelLevel || 0));
 
-    // Slip: media de longSlip traseros si hay wheelTraction; fallback mrAvgDrivenWheelsSlip
-    var slipPct = 0;
-    var wt = data.wheelTraction;
-    if (Array.isArray(wt) && wt.length >= 4) {
-      var slips = [];
-      for (var i = 2; i <= 3; i++) {
-        var w = wt[i];
-        if (!w) continue;
-        var raw = (w.longSlip != null) ? w.longSlip : (w.slip || 0);
-        slips.push(Math.abs(raw) * (Math.abs(raw) <= 1 ? 100 : 1));
-      }
-      if (slips.length) {
-        slipPct = slips.reduce(function(a, b) { return a + b; }, 0) / slips.length;
-      }
-    } else {
-      slipPct = (data.mrAvgDrivenWheelsSlip || 0) * 100;
-    }
-    slipPct = Math.round(slipPct);
+    var slipPct = window.TelemetryUI
+      ? window.TelemetryUI.slipPercent(data)
+      : Math.round((data.mrAvgDrivenWheelsSlip || 0) * 100);
 
     setText('trabajo-rpm', rpm);
     setText('trabajo-speed', speed.toFixed(1));
@@ -740,19 +719,9 @@
     setText('trabajo-slip', slipPct);
     setText('trabajo-fuel-pct', (fuelPct > 0 || fuelPct === 0) ? (+fuelPct.toFixed(0)) + ' %' : '— %');
 
-    // Marcha (misma lógica que IA)
     var gearEl = document.getElementById('trabajo-gear');
-    if (gearEl) {
-      var trans = data.transmissionType || 'manual';
-      var grp = data.gearGroupName || '';
-      var g = data.currentGear || 'N';
-      if (trans === 'cvt') {
-        gearEl.textContent = 'CVT';
-      } else if (grp && String(g).indexOf(grp) !== 0) {
-        gearEl.textContent = grp + g;
-      } else {
-        gearEl.textContent = g || 'N';
-      }
+    if (gearEl && window.TelemetryUI) {
+      gearEl.textContent = window.TelemetryUI.formatGearDisplay(data);
     }
 
     // Estados visuales de métricas
@@ -798,16 +767,12 @@
     }
 
     // Contexto
-    var workTypeMap = {
-      HARVESTER: 'Cosecha', SOWER: 'Siembra', SPRAYER: 'Pulverización',
-      FERTILIZER: 'Abonado', PLOW: 'Arado', CULTIVATOR: 'Cultivo',
-      MOWER: 'Siega', BALER: 'Empacado', TRANSPORT: 'Transporte',
-      FIELDWORK: 'Campo', UNKNOWN: '—'
-    };
     var rawType = data.workType || 'UNKNOWN';
     setText('trabajo-vehicle', data.vehicleName || '—');
     setText('trabajo-impl', (data.implementName || '').trim() || 'Sin implemento');
-    setText('trabajo-work-type', workTypeMap[rawType] || rawType);
+    setText('trabajo-work-type', window.WorkTypes
+      ? window.WorkTypes.getLabel(rawType, 'short')
+      : rawType);
 
     var lowEl = document.getElementById('trabajo-impl-lowered');
     if (lowEl) {
@@ -823,7 +788,7 @@
       wrkEl.className = 'ia-badge' + (working ? ' active' : '');
     }
 
-    var recording = !!(data.implementLowered && speed > 0.3);
+    var recording = window.TelemetryUI ? window.TelemetryUI.isRecording(data) : false;
     var recEl = document.getElementById('trabajo-rec-status');
     if (recEl) {
       recEl.textContent = recording ? '● GRABANDO' : '● EN ESPERA';
@@ -880,6 +845,9 @@ function initDashboard() {
   }
 
   window.dashboard = new Dashboard();
+  if (window.telemetryClient && window.telemetryClient.connected && typeof window.forwardTelemetryToDashboard === 'function') {
+    window.forwardTelemetryToDashboard(window.telemetryClient.lastPayload || { isRealData: false });
+  }
 
   if (!window.telemetryClient || typeof window.telemetryClient.onTelemetry !== 'function') {
     console.warn('TelemetryClient no disponible');

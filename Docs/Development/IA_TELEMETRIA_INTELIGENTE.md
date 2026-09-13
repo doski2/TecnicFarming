@@ -77,12 +77,12 @@ Hay que investigar si el mod MoreRealistic expone estos datos en Lua:
 
 | Dato             | Descripción                      | Estado                                                 |
 | ---------------- | -------------------------------- | ------------------------------------------------------ |
-| `tireBrand`      | Marca de neumático               | 🔍 Por investigar en MR                                 |
-| `tireSize`       | Tamaño del neumático             | 🔍 Por investigar en MR                                 |
-| `tireType`       | Tipo (carretera, agrícola, etc.) | 🔍 Por investigar en MR                                 |
-| `ballastWeight`  | Peso de contrapesos (kg)         | ❌ Descartado — inferible de `totalMassT` y ratio ejes  |
-| `frontAxleLoad`  | Carga eje delantero              | ✅ Calculado: sum(tireLoadKN FL+FR)                     |
-| `frontAxleRatio` | % de masa en eje delantero       | ✅ Calculado: frontLoad / totalLoad                     |
+| `tireBrand`      | Marca de neumático               | 🔍 Por investigar en MR                                |
+| `tireSize`       | Tamaño del neumático             | 🔍 Por investigar en MR                                |
+| `tireType`       | Tipo (carretera, agrícola, etc.) | 🔍 Por investigar en MR                                |
+| `ballastWeight`  | Peso de contrapesos (kg)         | ❌ Descartado — inferible de `totalMassT` y ratio ejes |
+| `frontAxleLoad`  | Carga eje delantero              | ✅ Calculado: sum(tireLoadKN FL+FR)                    |
+| `frontAxleRatio` | % de masa en eje delantero       | ✅ Calculado: frontLoad / totalLoad                    |
 
 > **Nota:** Si MR no expone estos datos directamente, se pueden inferir del comportamiento (un
 > tractor con más contrapeso tendrá menos patinaje trasero con la misma carga).
@@ -248,10 +248,10 @@ Si `margenHoras < 1` → **"Justo, acelera"** (ámbar)
 
 | Pregunta                                                                   | Estado                                               |
 | -------------------------------------------------------------------------- | ---------------------------------------------------- |
-| ¿`g_currentMission.environment.weather:getNextRainTime()` existe en FS25?  | 🔍 Por verificar                                      |
-| ¿MR expone datos de neumáticos en tiempo de ejecución?                     | 🔍 Por verificar en MR_Motorized.lua                  |
-| ¿Hay diferencias de comportamiento entre marcas de neumáticos en el juego? | 🔍 Por investigar                                     |
-| ¿`FieldUtil.getFieldAtWorldPosition()` funciona dentro de SHTelemetry?     | 🔍 Por verificar                                      |
+| ¿`g_currentMission.environment.weather:getNextRainTime()` existe en FS25?  | 🔍 Por verificar                                     |
+| ¿MR expone datos de neumáticos en tiempo de ejecución?                     | 🔍 Por verificar en MR_Motorized.lua                 |
+| ¿Hay diferencias de comportamiento entre marcas de neumáticos en el juego? | 🔍 Por investigar                                    |
+| ¿`FieldUtil.getFieldAtWorldPosition()` funciona dentro de SHTelemetry?     | 🔍 Por verificar                                     |
 | ¿Cuánta memoria ocupa 1 sesión de 8h a 1 muestra/s?                        | ~28MB (estimado) — aceptable                         |
 | ¿El script Python corre con los datos del servidor o del cliente?          | Del servidor (Node.js lee el pipe, guarda el .jsonl) |
 

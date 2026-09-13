@@ -1,13 +1,13 @@
 # Guía Completa de Trabajo de Campo — Farming Simulator 25
 
 > Basada en la serie oficial [Ground Working
-> 101](https://farming-simulator.com/newsArticle.php?&news_id=291) — GIANTS Software Academy
+> 101](<https://farming-simulator.com/newsArticle.php?&news_id=291>) — GIANTS Software Academy
 >
 > Artículos fuente: [Mejora de
-> rendimiento](https://farming-simulator.com/newsArticle.php?&news_id=291) ·
+> rendimiento](<https://farming-simulator.com/newsArticle.php?&news_id=291>) ·
 > [Fertilización](https://farming-simulator.com/newsArticle.php?&news_id=292) · [Malas
-> hierbas](https://farming-simulator.com/newsArticle.php?&news_id=293) · [Arado y
-> cultivado](https://farming-simulator.com/newsArticle.php?&news_id=294) ·
+> hierbas](<https://farming-simulator.com/newsArticle.php?&news_id=293>) · [Arado y
+> cultivado](<https://farming-simulator.com/newsArticle.php?&news_id=294>) ·
 > [Rodillos](https://farming-simulator.com/newsArticle.php?&news_id=295) ·
 > [Trituradoras](https://farming-simulator.com/newsArticle.php?&news_id=296) ·
 > [Siembra](https://farming-simulator.com/newsArticle.php?&news_id=317) ·
@@ -85,9 +85,9 @@ normal (los subsuéladores no dan este beneficio).
 
 | Herramienta                 | Velocidad  | Piedras     | Evita malas hierbas | Crea campos | Notas                                         |
 | --------------------------- | ---------- | ----------- | ------------------- | ----------- | --------------------------------------------- |
-| **Arado regular (Plow)**    | ~12 km/h   | Pequeñas    | ✅ Sí                | ✅ Sí        | Más lento, alta potencia                      |
-| **Espadador (Spader)**      | 5–8 km/h   | Pequeñas    | ❌ No                | ✅ Sí        | Similar al arado pero sin bonus malas hierbas |
-| **Subsuélador (Subsoiler)** | 12–15 km/h | **Grandes** | ❌ No                | ❌ No        | Más rápido, pero genera piedras grandes       |
+| **Arado regular (Plow)**    | ~12 km/h   | Pequeñas    | ✅ Sí               | ✅ Sí       | Más lento, alta potencia                      |
+| **Espadador (Spader)**      | 5–8 km/h   | Pequeñas    | ❌ No               | ✅ Sí       | Similar al arado pero sin bonus malas hierbas |
+| **Subsuélador (Subsoiler)** | 12–15 km/h | **Grandes** | ❌ No               | ❌ No       | Más rápido, pero genera piedras grandes       |
 
 ### ¿Cuándo basta con CULTIVAR?
 
@@ -96,8 +96,8 @@ antes de sembrar.
 
 ### Tipos de cultivado
 
-| Herramienta                            | Velocidad  | Piedras   | Eficacia vs malas hierbas        | Notas                                                                                       | -------------------------------------- | ---------- | --------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
-| **Cultivador regular**                 | ~15 km/h   | Pequeñas  | ✅ Alta                           | El más efectivo contra malas hierbas                                                        |                                        |            |           |                                  |                                                                                             |
+| Herramienta                            | Velocidad  | Piedras    | Eficacia vs malas hierbas        | Notas                                                                                       | -------------------------------------- | ---------- | --------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
+| **Cultivador regular**                 | ~15 km/h   | Pequeñas   | ✅ Alta                          | El más efectivo contra malas hierbas                                                        |                                        |            |           |                                  |                                                                                             |
 | **Cultivador superficial (Shallow)**   | Más rápido | ❌ Ninguna | Media                            | Más ancho, menos potencia, más caro                                                         |                                        |            |           |                                  |                                                                                             |
 | **Rastra de discos (Disc Harrow)**     | ~18 km/h   | ❌ Ninguna | Baja (hierbas crecen más rápido) | Más barata, menos potencia                                                                  |                                        |            |           |                                  |                                                                                             |
 | **Rastra de clavijas (Power Harrow)**  | ~12 km/h   | ❌ Ninguna | Baja                             | Barata, más potencia que la de discos                                                       |                                        |            |           |                                  |                                                                                             |

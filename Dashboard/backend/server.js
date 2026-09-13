@@ -6,7 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { spawn } from 'child_process';
-import TelemetryService from './src/services/telemetry.js';
+import TelemetryService, { resolvePipeName } from './src/services/telemetry.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -82,37 +82,51 @@ logger.info(`Configurando namespace: ${telemetryNamespace}`);
 const nsp = io.of(telemetryNamespace);
 logger.info('✓ Namespace configurado');
 
+app.get('/api/telemetry/status', (req, res) => {
+  const data = telemetryService.getCurrentData();
+  res.json({
+    pipeConnected: telemetryService.isConnected,
+    isRealData: data.isRealData,
+    rpm: data.engineSpeed || data.rpm || 0,
+    speed: data.speed || 0,
+    vehicleName: data.vehicleName || '',
+    telemetrySource: data.telemetrySource || '',
+    websocketClients: nsp.sockets ? nsp.sockets.size : 0
+  });
+});
+
 // Manejar conexiones en el namespace
 nsp.on('connection', (socket) => {
   logger.info(`✓ Cliente conectado a ${telemetryNamespace}: ${socket.id}`);
+  socket.emit('telemetry', telemetryService.getCurrentData());
 
   socket.on('disconnect', () => {
     logger.info(`✗ Cliente desconectado de ${telemetryNamespace}: ${socket.id}`);
   });
 
-  // Echo test para verificar conexión
   socket.on('ping', () => {
     socket.emit('pong', { timestamp: Date.now() });
   });
 });
 
-// Iniciar recolección de datos
-logger.info('Iniciando recolección de datos...');
+// Telemetría: se inicia tras enlazar HTTP (evita bucle si el puerto 8080 está ocupado)
 let emissionCount = 0;
-// Log rate ajustado: UPDATE_FREQUENCY_MS=50 → 20fps → loguear cada 20 emisiones (1/s)
 const LOG_EVERY = Math.max(1, Math.round(1000 / (parseInt(process.env.UPDATE_FREQUENCY_MS) || 50)));
-telemetryService.startCollecting((data) => {
-  emissionCount++;
-  const clientCount = nsp.sockets ? nsp.sockets.size : 0;
-  if (emissionCount % LOG_EVERY === 0) {
-    logger.info(`✓ Conectado a FS25: RPM=${Math.round(data.rpm)}, Fuel=${Math.round(data.fuelLevel)}%, Clients=${clientCount}`);
-  }
-  // Solo serializar y emitir si hay clientes conectados — evita trabajo innecesario
-  if (clientCount > 0) {
-    nsp.emit('telemetry', data);
-  }
-});
-logger.info('✓ Recolección iniciada - ESPERANDO CONEXIÓN A FS25');
+
+function startTelemetryCollection() {
+  logger.info('Iniciando recolección de datos...');
+  telemetryService.startCollecting((data) => {
+    emissionCount++;
+    const clientCount = nsp.sockets ? nsp.sockets.size : 0;
+    if (emissionCount % LOG_EVERY === 0 && data.isRealData) {
+      logger.info(`✓ FS25 activo: RPM=${Math.round(data.engineSpeed || data.rpm)}, Fuel=${Math.round(data.fuelPercentage ?? data.fuelLevel)}%, Clients=${clientCount}`);
+    }
+    if (clientCount > 0) {
+      nsp.emit('telemetry', data);
+    }
+  });
+  logger.info('✓ Recolección iniciada - ESPERANDO CONEXIÓN A FS25');
+}
 
 // ── ENDPOINT: Análisis de sesión ───────────────────────────────────────────
 // GET /api/analyze          → analiza la sesión activa (archivo .jsonl actual)
@@ -264,7 +278,7 @@ app.delete('/api/session/file', (req, res) => {
   }
 });
 
-// GET /api/campo-profile?campo=3&workType=HARVESTING  → perfil acumulado de un campo+operación
+// GET /api/campo-profile?campo=3&workType=HARVESTER  → perfil acumulado de un campo+operación
 // GET /api/campo-profile?campo=3                      → todos los perfiles de ese campo
 // GET /api/campo-profile                              → todos los perfiles existentes
 app.get('/api/campo-profile', (req, res) => {
@@ -306,18 +320,29 @@ process.on('unhandledRejection', (reason, promise) => {
 // INICIAR SERVIDOR
 const SOCKET_IO_PORT = process.env.SOCKET_IO_PORT || 8080;
 
+httpServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    logger.error(`Puerto ${SOCKET_IO_PORT} ya en uso. Cierra la otra ventana del backend o ejecuta stop_dashboard.bat`);
+    process.exit(1);
+  }
+  logger.error(`Error HTTP: ${err.message}`);
+  process.exit(1);
+});
+
 httpServer.listen(SOCKET_IO_PORT, '0.0.0.0', () => {
   logger.info(`═════════════════════════════════════════════════════`);
   logger.info(`🚀 Dashboard FS25 Backend - INICIADO`);
   logger.info(`═════════════════════════════════════════════════════`);
   logger.info(`✓ HTTP/WebSocket escuchando en: http://localhost:${SOCKET_IO_PORT}`);
   logger.info(`✓ Socket.io namespace: /telemetry`);
-  logger.info(`✓ Servidor TCP esperando SHTelemetry: localhost:9000`);
-  logger.info(`✓ Update frequency: ${process.env.UPDATE_FREQUENCY_MS}ms (${Math.round(1000 / (parseInt(process.env.UPDATE_FREQUENCY_MS) || 50))} FPS)`);
+  const updateMs = parseFloat(process.env.UPDATE_FREQUENCY_MS) || 16.66;
+  logger.info(`✓ Named Pipe SHTelemetry: ${resolvePipeName()}`);
+  logger.info(`✓ Update frequency: ${updateMs}ms (${Math.round(1000 / updateMs)} FPS)`);
   logger.info(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`═════════════════════════════════════════════════════`);
   logger.info(`📍 Dashboard en: http://localhost:${SOCKET_IO_PORT}`);
   logger.info(`═════════════════════════════════════════════════════`);
+  startTelemetryCollection();
 });
 
 export { app, httpServer, io, logger };

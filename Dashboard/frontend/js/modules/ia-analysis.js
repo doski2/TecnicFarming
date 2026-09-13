@@ -118,13 +118,9 @@ function _renderProfileStrip(profile) {
   if (!strip) return;
   if (!profile) { strip.classList.add('ia-hidden'); return; }
 
-  var wtMap = {
-    'HARVESTING':'COSECHA','HARVESTER':'COSECHA','SOWER':'SIEMBRA','SPRAYER':'PULV.',
-    'FERTILIZER':'ABONO','PLOW':'ARADO','CULTIVATOR':'CULTIVO',
-    'MOWER':'SIEGA','BALER':'EMPACADO','TRANSPORT':'TRANSPORTE',
-    'FIELDWORK':'TRABAJO','UNKNOWN':'—'
-  };
-  var wt  = wtMap[profile.workType] || profile.workType;
+  var wt = window.WorkTypes
+    ? window.WorkTypes.getLabel(profile.workType, 'profile')
+    : (profile.workType || '—');
   var set = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
 
   set('ia-profile-label',   'CAMPO ' + profile.campo + ' — ' + wt);
@@ -144,13 +140,9 @@ function renderAnalysis(d) {
   // Actualizar perfil histórico acumulado
   _renderProfileStrip(d.profile || null);
 
-  var workTypeMap = {
-    'HARVESTER':'Cosechadora','SOWER':'Sembradora','SPRAYER':'Pulverizadora',
-    'FERTILIZER':'Abonadora','PLOW':'Arado','CULTIVATOR':'Cultivador',
-    'MOWER':'Segadora','BALER':'Empacadora','TRANSPORT':'Transporte',
-    'FIELDWORK':'Trabajo de campo','UNKNOWN':'Desconocido'
-  };
-  var wt = workTypeMap[d.work_type] || d.work_type;
+  var wt = window.WorkTypes
+    ? window.WorkTypes.getLabel(d.work_type, 'label')
+    : (d.work_type || '—');
   var campoLabel = d.campo != null
     ? 'Campo ' + d.campo + (d.campos && d.campos.length > 1 ? ' (+' + (d.campos.length - 1) + ' más)' : '')
     : 'Sin campo';

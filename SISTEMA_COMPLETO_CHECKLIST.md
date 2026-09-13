@@ -31,7 +31,7 @@ Usa este checklist para verificar que todo está correctamente configurado.
 
 ## ✅ Mods FS25
 
-- [ ] FSTelemetry.lua activado en FS25
+- [ ] SHTelemetry activado en FS25
 - [ ] MoreRealistic_FS25 activado en FS25
 - [ ] Juego en estado jugable
 
@@ -85,7 +85,7 @@ Deberías ver:
 
 ### Con Named Pipe (Requerido)
 
-- [ ] Mod SHTelemetry o FSTelemetry está correctamente configurado
+- [ ] Mod SHTelemetry está correctamente configurado
 - [ ] Log muestra: "🔌 Conectando a Named Pipe"
 - [ ] Dashboard recibe datos del juego en vivo
 - [ ] Badge de estado muestra "EN VIVO" (no "Esperando FS25")
@@ -105,12 +105,12 @@ Todos los documentos accesibles:
 ## ✅ Tests Automatizados
 
 ```bat
+run_tests.bat
 ```
 
-- [ ] Suite 1/4 — Backend (`npm test`) — 7 tests OK
-- [ ] Suite 2/4 — Frontend (`Tests/frontend_logic.test.js`) — 3 tests OK
-- [ ] Suite 3/4 — Telemetría (`Scripts/test_telemetry.js`) — 28 tests OK
-- [ ] Suite 4/4 — Análisis Python (`Scripts/test_analyze_session.py`) — 20 tests OK
+- [ ] Suite 1/3 — Backend (`npm test`) — 17 tests OK
+- [ ] Suite 2/3 — Frontend (`Tests/frontend_logic.test.js`) — 6 tests OK
+- [ ] Suite 3/3 — Análisis Python (`Scripts/test_analyze_session.py`) — 20 tests OK
 
 ## 🎯 Validación Final
 
@@ -118,7 +118,7 @@ Si todo está ✓, tu sistema está **LISTO PARA PRODUCCIÓN**
 
 ### Test rápido
 
-1. Ejecuta `run_tests.bat` — deben pasar los 58 tests
+1. Ejecuta `run_tests.bat` — deben pasar los 43 tests
 2. Ejecuta `npm start` en `Dashboard/backend`
 3. Abre <http://localhost:8080>
 4. Abre F12 → Console

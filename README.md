@@ -31,8 +31,8 @@ Dashboard en tiempo real para monitorear rendimiento de maquinaria en FS25
 
 ### Instalación (3 pasos)
 
-```bash
-```
+Ver **[INSTALACION.md](./Docs/Setup/INSTALACION.md)** — resumen: `cd Dashboard/backend`, `npm
+install`, `npm start`.
 
 Luego abre en navegador:
 
@@ -55,34 +55,16 @@ Luego abre en navegador:
 
 ## 🧪 Testing y Validación
 
-Suite automatizada de **58 tests** en 4 módulos. Ejecuta desde la raíz:
+Suite de **43 tests** en 3 módulos (`run_tests.bat` desde la raíz).
 
-```bat
-```
-
-| Suite      | Archivo                                     | Tests   | Qué valida                                    |
-| ---------- | ------------------------------------------- | ------- | --------------------------------------------- |
-| Backend    | `Dashboard/backend/Tests/telemetry.test.js` | 7       | Parseo JSON, EMA de masa, chunks, tracción    |
-| Frontend   | `Tests/frontend_logic.test.js`              | 3       | Ángulos de aguja RPM/velocidad, zonas ECO/OPT |
-| Telemetría | `Scripts/test_telemetry.js`                 | 28      | Mapeo de campos, logging JSONL, wheelTraction |
-| Análisis   | `Scripts/test_analyze_session.py`           | 20      | Estadísticas y perfiles de campo              |
-
-📖 **[Guía completa de tests →](./Docs/Setup/TESTING.md)**
-
-### Simulador sin juego
-
-```bat
-```
-
-Crea la Named Pipe `\\.\pipe\SHTelemetry` y envía telemetría simulada para probar el dashboard sin
-abrir FS25.
+📖 **[Guía completa de tests →](./Docs/Setup/TESTING.md)** (tabla de suites, comandos y simulador sin
+juego)
 
 ---
 
 ## 📂 Estructura del Proyecto
 
-```text
-```
+Ver **[ESTRUCTURA_PROYECTO.md](./ESTRUCTURA_PROYECTO.md)**.
 
 ---
 
@@ -134,7 +116,7 @@ abrir FS25.
 - [x] Backend Node.js + Socket.io + Named Pipe
 - [x] Datos en tiempo real y grabación de sesiones JSONL
 - [x] Análisis de sesiones y perfiles de campo (Python)
-- [x] Suite de tests automatizada (58 tests)
+- [x] Suite de tests automatizada (43 tests)
 
 ### ⏳ En Desarrollo
 
@@ -170,7 +152,7 @@ Ver [.env.example](./Dashboard/backend/.env.example) para todas las opciones.
 2. Ve a Console
 3. Revisa errores de WebSocket
 
-### FSTelemetry no se conecta
+### SHTelemetry no se conecta
 
 1. Confirma mod **SHTelemetry** activo en FS25
 2. Verifica Named Pipe: `\\.\pipe\SHTelemetry`

@@ -7,18 +7,28 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // __dirname = Dashboard/backend/src/services/  → 4 niveles arriba = raíz del proyecto
 const DATA_DIR = join(__dirname, '..', '..', '..', '..', 'Data', 'sessions');
 
+/** Ruta Windows \\.\pipe\NAME — tolera .env con escapes duplicados (\\\\.\\pipe\\...) */
+export function resolvePipeName() {
+  const raw = (process.env.NAMED_PIPE_NAME || 'SHTelemetry').trim().replace(/^["']|["']$/g, '');
+  const base = raw
+    .replace(/^.*\\pipe[\\/]*/i, '')
+    .replace(/^\.\\+/, '')
+    .replace(/^\\+/, '')
+    || 'SHTelemetry';
+  return `\\\\.\\pipe\\${base}`;
+}
+
 /**
- * Servicio de Telemetría - Servidor TCP
- * 
+ * Servicio de Telemetría — Named Pipe (Windows)
+ *
  * Arquitectura:
- * SHTelemetry (Lua mod) --TCP--> localhost:9000 --> TelemetryService
- * 
+ * SHTelemetry (Lua mod) --> \\.\pipe\SHTelemetry --> TelemetryService
+ *
  * El mod envía datos JSON línea por línea
  */
 export default class TelemetryService {
   constructor(logger) {
     this.logger = logger;
-    this.tcpPort = parseInt(process.env.TELEMETRY_PORT) || 9000;
     this.server = null;
     this.currentClient = null;
     this.updateCallback = null;
@@ -32,6 +42,9 @@ export default class TelemetryService {
     this._sessionFile = null; // ruta del .jsonl activo
     this._activeCampo = -1;   // campo seleccionado desde el frontend (-1 = sin campo)
     this._massEma = null;     // EMA de totalMassT — filtra oscilaciones dinámicas de carga de rueda
+    this._emitInterval = null;
+    this._pipeListening = false;
+    this._pipeRetryCount = 0;
     
     // Datos actuales
     this.currentData = {
@@ -80,6 +93,7 @@ export default class TelemetryService {
       cropType: '',
       isMotorStarted: false,
       transmissionType: 'manual',
+      telemetrySource: '',
       timestamp: Date.now()
     };
   }
@@ -92,10 +106,22 @@ export default class TelemetryService {
     this.isConnected = false;
     this.isRealData = false;
 
+    if (this._emitInterval) {
+      clearInterval(this._emitInterval);
+      this._emitInterval = null;
+    }
+
+    if (this.server) {
+      try {
+        this.server.close();
+      } catch (_) {
+        // ignore
+      }
+      this.server = null;
+    }
+
     try {
-      // IMPORTANTE: En Windows, Node.js puede escuchar en Named Pipes directamente
-      // El pipeName debe ser: \\\\.\\pipe\\NOMBRE (escapado correctamente)
-      const pipeName = '\\\\.\\pipe\\SHTelemetry';
+      const pipeName = resolvePipeName();
       
       this.server = net.createServer((socket) => {
         this.clientCount++;
@@ -124,6 +150,7 @@ export default class TelemetryService {
           }
           this.isConnected = false;
           this.isRealData = false;
+          this.currentData.telemetrySource = '';
           this._massEma = null; // resetear EMA al desconectar (puede ser otro vehículo)
         });
 
@@ -134,21 +161,36 @@ export default class TelemetryService {
           }
           this.isConnected = false;
           this.isRealData = false;
+          this.currentData.telemetrySource = '';
         });
       });
 
       // Manejar errores del servidor
       this.server.on('error', (err) => {
-        this.logger.error(`Error servidor Named Pipe: ${err.message}`);
+        this._pipeListening = false;
         this.isConnected = false;
         this.isRealData = false;
-        
-        // Reintentar en 2 segundos si hay error EADDRINUSE o similar
+
+        if (err.code === 'EADDRINUSE' || err.code === 'ENOENT') {
+          this.logger.error(
+            `Named Pipe no disponible (${err.code}): otra instancia del backend ya usa ${pipeName}. ` +
+            'Cierra la ventana anterior o ejecuta stop_dashboard.bat desde la raíz del proyecto.'
+          );
+          return;
+        }
+
+        this.logger.error(`Error servidor Named Pipe: ${err.message}`);
+        if (this._pipeRetryCount >= 5) {
+          this.logger.error('Demasiados reintentos de Named Pipe — reinicia el backend.');
+          return;
+        }
+
         if (!this.connectionRetryTimeout) {
+          this._pipeRetryCount++;
           this.connectionRetryTimeout = setTimeout(() => {
             this.connectionRetryTimeout = null;
-            if (!this.isConnected) {
-              this.logger.info(`Reintentando conexión a Named Pipe...`);
+            if (!this._pipeListening) {
+              this.logger.info(`Reintentando Named Pipe (${this._pipeRetryCount}/5)...`);
               this.startCollecting(this.updateCallback);
             }
           }, 2000);
@@ -157,14 +199,17 @@ export default class TelemetryService {
 
       // Escuchar en Named Pipe
       this.server.listen(pipeName, () => {
+        this._pipeListening = true;
+        this._pipeRetryCount = 0;
         this.logger.info(`✓ Servidor escuchando en Named Pipe: ${pipeName}`);
       });
 
-      // Emitir datos a intervalos regulares
-      setInterval(() => {
-        if (this.updateCallback && this.isRealData) {
-          const d = this.getCurrentData();
-          this.updateCallback(d);
+      // Emitir estado al dashboard siempre; grabar JSONL solo con datos reales del juego
+      this._emitInterval = setInterval(() => {
+        if (!this.updateCallback) return;
+        const d = this.getCurrentData();
+        this.updateCallback(d);
+        if (this.isRealData && d.telemetrySource !== 'mock') {
           this._logSample(d);
         }
       }, this.updateInterval);
@@ -236,6 +281,13 @@ export default class TelemetryService {
     if (obj.maxTorqueNm !== undefined) this.currentData.maxTorqueNm = obj.maxTorqueNm;
     if (obj.powerKW !== undefined) this.currentData.powerKW = obj.powerKW;
     if (obj.vehicleName !== undefined) this.currentData.vehicleName = obj.vehicleName;
+    if (obj.telemetrySource === 'mock' || obj.telemetrySource === 'fs25') {
+      this.currentData.telemetrySource = obj.telemetrySource;
+    } else if (obj.vehicleName && String(obj.vehicleName).includes('(Simulado)')) {
+      this.currentData.telemetrySource = 'mock';
+    } else if (this.isRealData && !this.currentData.telemetrySource) {
+      this.currentData.telemetrySource = 'fs25';
+    }
     if (obj.motorLoad !== undefined) this.currentData.engineLoad = obj.motorLoad;
     if (obj.cropType !== undefined) this.currentData.cropType = obj.cropType;
     if (obj.accelerator !== undefined) this.currentData.accelerator = obj.accelerator;
@@ -314,6 +366,7 @@ export default class TelemetryService {
     if (obj.implementLowered   !== undefined) this.currentData.implementLowered   = !!obj.implementLowered;
     if (obj.implementWorking   !== undefined) this.currentData.implementWorking   = !!obj.implementWorking;
     if (obj.workType           !== undefined) this.currentData.workType           = obj.workType      || 'TRANSPORT';
+    if (obj.transmissionType   !== undefined) this.currentData.transmissionType   = obj.transmissionType;
 
     this.currentData.timestamp = Date.now();
   }
@@ -335,7 +388,7 @@ export default class TelemetryService {
     // Construir ruta: Data/sessions/campo_3/YYYY-MM-DD_Vehiculo_WorkType.jsonl
     const today     = new Date().toISOString().slice(0, 10);
     const safeName  = (data.vehicleName || 'unknown').replace(/[^a-zA-Z0-9_\-]/g, '_');
-    const workType  = (data.workType    || 'UNKNOWN');
+    const workType  = (data.workType    || 'TRANSPORT');
     const campoDir  = this._activeCampo > 0 ? `campo_${this._activeCampo}` : 'sin_campo';
     const sessionDir = join(DATA_DIR, campoDir);
     const fileName  = `${today}_${safeName}_${workType}.jsonl`;
@@ -365,7 +418,7 @@ export default class TelemetryService {
       ts:             Math.floor(now / 1000),
       campo:          this._activeCampo > 0 ? this._activeCampo : null,
       tractorId:      data.vehicleName   || '',
-      workType:       data.workType      || 'UNKNOWN',
+      workType:       data.workType      || 'TRANSPORT',
       cropType:       data.cropType       || '',
       implementName:  data.implementName || '',
       rpm:            data.rpm           || 0,
@@ -393,20 +446,103 @@ export default class TelemetryService {
   }
 
   /**
-   * Obtener datos actuales
+   * Garantiza 4 ruedas con defaults (usado en payload cliente y tests).
+   */
+  static ensureWheelTraction(wt) {
+    const positions = ['FL', 'FR', 'RL', 'RR'];
+    const empty = (pos) => ({
+      position: pos,
+      motorized: true,
+      torquePercent: 0,
+      slip: 0,
+      speedMs: 0,
+      contact: false,
+      tireLoadKN: null,
+      longSlip: null,
+      latSlip: null,
+      groundType: null,
+      rrFx: null,
+      pressureFx: null
+    });
+    const source = Array.isArray(wt) ? wt : [];
+    return positions.map((pos, idx) => {
+      const w = source[idx] || {};
+      return {
+        position: w.position ?? pos,
+        motorized: w.motorized ?? true,
+        torquePercent: w.torquePercent ?? 0,
+        slip: w.slip ?? 0,
+        speedMs: w.speedMs ?? 0,
+        contact: w.contact ?? false,
+        tireLoadKN: w.tireLoadKN ?? null,
+        longSlip: w.longSlip ?? null,
+        latSlip: w.latSlip ?? null,
+        groundType: w.groundType ?? null,
+        rrFx: w.rrFx ?? null,
+        pressureFx: w.pressureFx ?? null
+      };
+    });
+  }
+
+  /** Media de longSlip en ruedas motrices traseras (0–1). */
+  static computeMrAvgDrivenWheelsSlip(wheelTraction) {
+    const wt = TelemetryService.ensureWheelTraction(wheelTraction);
+    const rear = [wt[2], wt[3]];
+    const slips = rear
+      .map((w) => {
+        const raw = w.longSlip != null ? w.longSlip : (w.slip || 0);
+        return Math.abs(raw);
+      })
+      .filter((v) => v > 0);
+    if (!slips.length) return 0;
+    return slips.reduce((a, b) => a + b, 0) / slips.length;
+  }
+
+  /**
+   * Payload unificado para WebSocket — aliases que antes mapeaba el frontend.
+   */
+  toClientPayload(data) {
+    const wheelTraction = TelemetryService.ensureWheelTraction(data.wheelTraction);
+    const powerKW = data.powerKW || 0;
+    return {
+      ...data,
+      wheelTraction,
+      engineSpeed: data.rpm ?? 0,
+      motorTorque: data.torque ?? 0,
+      motorLoad: data.engineLoad ?? 0,
+      fuelUsagePerHour: data.consumption ?? 0,
+      motorTemperature: data.temperature ?? 20,
+      fuelPercentage: data.fuelLevel ?? 100,
+      currentGear: data.gear ?? 'N',
+      powerHP: powerKW * 1.35962,
+      mrAvgDrivenWheelsSlip: data.mrAvgDrivenWheelsSlip
+        ?? TelemetryService.computeMrAvgDrivenWheelsSlip(wheelTraction),
+      isRealData: this.isRealData,
+      isConnected: this.isConnected,
+      timestamp: data.timestamp || Date.now()
+    };
+  }
+
+  /**
+   * Obtener datos actuales (formato listo para el dashboard)
    */
   getCurrentData() {
-    return {
-      ...this.currentData,
-      isRealData: this.isRealData,
-      isConnected: this.isConnected
-    };
+    return this.toClientPayload(this.currentData);
   }
 
   /**
    * Detener servidor
    */
   stop() {
+    if (this._emitInterval) {
+      clearInterval(this._emitInterval);
+      this._emitInterval = null;
+    }
+    if (this.connectionRetryTimeout) {
+      clearTimeout(this.connectionRetryTimeout);
+      this.connectionRetryTimeout = null;
+    }
+
     if (this.currentClient) {
       try {
         this.currentClient.destroy();
@@ -427,5 +563,6 @@ export default class TelemetryService {
 
     this.isConnected = false;
     this.isRealData = false;
+    this._pipeListening = false;
   }
 }
