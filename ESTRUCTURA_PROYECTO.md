@@ -56,7 +56,6 @@ TecnicFarming/
 +-- Scripts/                              # Analisis y tests de telemetria
 
 | +-- analyze_session.py                # Procesa JSONL -> campo_profiles.json |
-| +-- test_telemetry.js                 # Deprecado → npm test en backend      |
 | +-- test_analyze_session.py           # 20 tests del analizador              |
 
 +-- Tests/                                # Tests frontend y simulador
@@ -117,7 +116,7 @@ Node.js + Express + Socket.io.
 FS25 -> Named Pipe \\.\pipe\SHTelemetry -> telemetry.js -> Socket.io /telemetry -> frontend
 ```
 
-- Escucha en `http://0.0.0.0:8080`
+- Escucha en `http://127.0.0.1:8080`
 - Emite evento `telemetry` a 60 FPS (cada 16.66ms)
 - Sirve el frontend como raiz estatica (`Dashboard/frontend/`)
 

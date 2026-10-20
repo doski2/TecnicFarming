@@ -213,9 +213,9 @@ var DynoChart = (function() {
   };
 
   DynoChart.prototype.render = function(vehicleName, currentRpm, currentTorque, currentMaxTorque, mrBandMin, mrBandMax, mrPeakRpm, mrEcoRpm) {
-    // Throttle a 60fps (17ms): canvas uPlot es suficientemente ligero para ello
+    // Throttle a ~10 Hz: las curvas cambian despacio y reconstruir los arrays es lo más costoso
     var now = Date.now();
-    if (now - this._lastRenderMs < 17) return;
+    if (now - this._lastRenderMs < 100) return;
     this._lastRenderMs = now;
 
     // Inicialización perezosa — el DOM ya está listo en el primer frame de telemetría

@@ -20,7 +20,6 @@ Dashboard/frontend/
 │   ├── dashboard.js
 │   └── modules/
 │       ├── dashboard-clock.js
-│       ├── dashboard-terrain.js
 │       ├── dyno-chart.js
 │       └── ia-analysis.js
 └── sections/
@@ -62,7 +61,6 @@ Dashboard/frontend/
 - `js/ui-updater.js`: efectos visuales, notificaciones y animaciones.
 - `js/dashboard.js`: coordinador principal de UI y telemetría.
 - `js/modules/dashboard-clock.js`: reloj superior.
-- `js/modules/dashboard-terrain.js`: pitch, roll y transformación del tractor.
 - `js/modules/dyno-chart.js`: gráfico del dinamómetro (uPlot).
 - `js/modules/ia-analysis.js`: panel de análisis inteligente.
 - `sections/`: fragmentos HTML cargados por `section-loader.js`.
@@ -85,11 +83,10 @@ El orden en `index.html` es:
    2. `uplot.min.js`
    3. `telemetry-client.js`
    4. `dashboard-clock.js`
-   5. `dashboard-terrain.js`
-   6. `dyno-chart.js`
-   7. `ia-analysis.js`
-   8. `ui-updater.js`
-   9. `dashboard.js` → llama `window.initDashboard()`
+   5. `dyno-chart.js`
+   6. `ia-analysis.js`
+   7. `ui-updater.js`
+   8. `dashboard.js` → llama `window.initDashboard()`
 
 ## Tests del frontend
 

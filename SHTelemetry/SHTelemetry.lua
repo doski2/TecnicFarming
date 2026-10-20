@@ -29,7 +29,7 @@ function SHTelemetry:initPipe(dt)
 	-- Si ya hay conexión activa, no hacer nada
 	if SHTelemetry.Context.shfile ~= nil then return end
 
-	-- Intentar reconectar cada 300 ciclos (~3s), sin límite de reintentos.
+	-- Intentar reconectar cada 300 ciclos (~10s a 33ms/ciclo), sin límite de reintentos.
 	-- Así el dashboard puede arrancarse en cualquier momento mientras se juega.
 	if SHTelemetry.Context.updateCount == 0 then
 		local success, result = pcall(function()
@@ -87,7 +87,7 @@ function SHTelemetry:buildTelemetry(telemetryDt)
 	local mission = g_currentMission
 
 	SHTelemetry.Telemetry = {}
-	SHTelemetry.Telemetry.pluginVersion = "2.1"
+	SHTelemetry.Telemetry.pluginVersion = "2.2"
 
 	SHTelemetry.Telemetry.money = mission.missionInfo.money
 	SHTelemetry.Telemetry.dayTime = mission.environment.currentHour * 3600 + mission.environment.currentMinute * 60
@@ -381,8 +381,12 @@ function SHTelemetry:buildTelemetry(telemetryDt)
 			end
 
 		-- Temperaturas
-			SHTelemetry.Telemetry.motorTemperature = motorTemperature.value
-			SHTelemetry.Telemetry.motorFanEnabled = motorFan.enabled
+			if motorTemperature ~= nil then
+				SHTelemetry.Telemetry.motorTemperature = motorTemperature.value
+			end
+			if motorFan ~= nil then
+				SHTelemetry.Telemetry.motorFanEnabled = motorFan.enabled
+			end
 		else
 			-- ⚠️ Motor no disponible (posible cambio de marcha)
 			-- Aún así capturar velocidad y acelerador del vehículo
@@ -466,15 +470,27 @@ function SHTelemetry:buildTelemetry(telemetryDt)
 		return
 	end
 	if SHTelemetry.Context.shfile ~= nil then
-		pcall(function()
+		local okWrite = pcall(function()
 			SHTelemetry.Context.shfile:write(res .. "\n")
 			SHTelemetry.Context.shfile:flush()
 		end)
+		if not okWrite then
+			-- Pipe cerrado (backend reiniciado/caído): soltar el handle para que initPipe reintente
+			pcall(function() SHTelemetry.Context.shfile:close() end)
+			SHTelemetry.Context.shfile = nil
+			SHTelemetry.Context.pipeAvailable = false
+			SHTelemetry.Context.updateCount = 0
+			print("[SHTelemetry] Pipe perdida, se reintentará la conexión")
+		end
 	end
 end
 
 function SHTelemetry:getVehicleFuelLevelAndCapacity(vehicle)
 	local fuelFillType = vehicle:getConsumerFillUnitIndex(FillType.DIESEL)
+	-- Vehículos sin depósito diésel (eléctricos, mods): evitar llamar con índice nil
+	if fuelFillType == nil then
+		return 0, 0
+	end
 	local level = vehicle:getFillUnitFillLevel(fuelFillType)
 	local capacity = vehicle:getFillUnitCapacity(fuelFillType)
 
@@ -496,7 +512,11 @@ function SHTelemetry:update(dt)
 
 		-- If pipe is ready
 		if SHTelemetry.Context.shfile ~= nil then
-			self:buildTelemetry(telemetryDt)
+			-- pcall: un fallo puntual (vehículo/mod atípico) no debe romper el update del juego
+			local okBuild, errBuild = pcall(self.buildTelemetry, self, telemetryDt)
+			if not okBuild then
+				print("[SHTelemetry] Error en buildTelemetry: " .. tostring(errBuild))
+			end
 		end
 	end
 end

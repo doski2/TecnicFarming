@@ -621,20 +621,3 @@ function SHTelemetry:captureExtendedData(vehicle, telemetry)
 	-- end)
 end
 
---
--- CÓMO USAR ESTE ARCHIVO:
---
--- 1. Incluir al principio de SHTelemetry.lua:
---    dofile(g_currentMission:getModDirectory() .. "SHTelemetry_Extensions.lua")
---
--- 2. Llamar en la función buildTelemetry() después de capturar datos básicos:
---    SHTelemetry:captureExtendedData(vehicle, SHTelemetry.Telemetry)
---
--- 3. Para activar el descubrimiento genérico descomenta la línea dentro de
---    captureExtendedData() si necesitas depurar nuevos mods
---
--- NOTAS:
--- - Los nombres de las specs varían según la versión del juego
--- - Algunos mods pueden no estar disponibles siempre
--- - El descubrimiento genérico puede generar muchos datos
---

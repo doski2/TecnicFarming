@@ -7,6 +7,44 @@ import sys
 import json
 import os
 import datetime
+import tempfile
+
+PROFILES_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), '..', 'Data', 'campo_profiles.json'
+)
+
+def _load_profiles(profiles_path):
+    """Lee los perfiles. Si el JSON está corrupto lo aparta a .bak (no se pierde el historial)."""
+    if not os.path.isfile(profiles_path):
+        return {}
+    try:
+        with open(profiles_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return data
+        raise ValueError('estructura inesperada')
+    except (json.JSONDecodeError, ValueError, IOError):
+        try:
+            os.replace(profiles_path, profiles_path + '.bak')
+        except OSError:
+            pass
+        return {}
+
+def _write_profiles(profiles_path, profiles):
+    """Escritura atómica: archivo temporal + os.replace."""
+    directory = os.path.dirname(os.path.abspath(profiles_path))
+    os.makedirs(directory, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(suffix='.tmp', dir=directory)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            json.dump(profiles, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, profiles_path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 def _save_profile(result, profiles_path, source_file=None):
     """Guarda/actualiza el perfil acumulado de campo+workType (promedio ponderado).
@@ -23,21 +61,24 @@ def _save_profile(result, profiles_path, source_file=None):
     key = '{}_{}'.format(campo, work_type)
     file_id = os.path.basename(source_file) if source_file else None
 
-    # Leer perfiles existentes
-    profiles = {}
-    if os.path.isfile(profiles_path):
-        try:
-            with open(profiles_path, 'r', encoding='utf-8') as f:
-                profiles = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            profiles = {}
-
+    profiles = _load_profiles(profiles_path)
     old = profiles.get(key, {})
 
-    # Deduplicación: si este archivo ya fue procesado, devolver el perfil sin cambios
-    analyzed_files = old.get('analyzed_files', [])
-    if file_id and file_id in analyzed_files:
-        return old
+    analyzed_files   = old.get('analyzed_files', [])
+    analyzed_samples = dict(old.get('analyzed_samples', {}))
+
+    # Deduplicación por archivo. Un archivo que sigue creciendo solo aporta las
+    # muestras nuevas desde el último análisis (delta), sin contar otra sesión.
+    # Los archivos del formato antiguo (solo lista) se consideran ya procesados.
+    is_new_file = True
+    if file_id:
+        if file_id in analyzed_samples:
+            is_new_file = False
+            n = n - analyzed_samples[file_id]
+            if n <= 0:
+                return old
+        elif file_id in analyzed_files:
+            return old
 
     old_n   = old.get('total_samples', 0)
     total_n = old_n + n
@@ -52,12 +93,14 @@ def _save_profile(result, profiles_path, source_file=None):
 
     # Registrar este archivo para evitar contarlo de nuevo
     if file_id:
-        analyzed_files = analyzed_files + [file_id]
+        analyzed_samples[file_id] = analyzed_samples.get(file_id, 0) + n
+        if file_id not in analyzed_files:
+            analyzed_files = analyzed_files + [file_id]
 
     merged = {
         'campo':                   campo,
         'workType':                work_type,
-        'sessions':                old.get('sessions', 0) + 1,
+        'sessions':                old.get('sessions', 0) + (1 if is_new_file else 0),
         'total_samples':           total_n,
         'recommended_accelerator': wmean(old.get('recommended_accelerator'), result.get('recommended_accelerator')),
         'avg_motor_load':          wmean(old.get('avg_motor_load'),          result.get('avg_motor_load')),
@@ -67,14 +110,12 @@ def _save_profile(result, profiles_path, source_file=None):
         'last_updated':            datetime.date.today().isoformat(),
         'last_vehicle':            result.get('vehicle', '—'),
         'analyzed_files':          analyzed_files,
+        'analyzed_samples':        analyzed_samples,
     }
 
     profiles[key] = merged
 
-    # Crear directorio si no existe
-    os.makedirs(os.path.dirname(os.path.abspath(profiles_path)), exist_ok=True)
-    with open(profiles_path, 'w', encoding='utf-8') as f:
-        json.dump(profiles, f, ensure_ascii=False, indent=2)
+    _write_profiles(profiles_path, profiles)
 
     return merged
 
@@ -215,10 +256,7 @@ def analyze(filepath):
     }
 
     # ── Guardar perfil acumulado campo+workType ───────────────────────────────
-    profiles_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), '..', 'Data', 'campo_profiles.json'
-    )
-    result['profile'] = _save_profile(result, profiles_path, source_file=filepath)
+    result['profile'] = _save_profile(result, PROFILES_PATH, source_file=filepath)
 
     print(json.dumps(result, ensure_ascii=False))
 

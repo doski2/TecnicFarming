@@ -20,7 +20,7 @@ class TelemetryClient {
         reconnection: true,
         reconnectionDelay: this.reconnectInterval,
         reconnectionDelayMax: 10000,
-        reconnectionAttempts: 10
+        reconnectionAttempts: Infinity
       });
 
       this.setupListeners();
@@ -68,8 +68,7 @@ class TelemetryClient {
   handleTelemetryData(data) {
     const payload = {
       ...data,
-      timestamp: data.timestamp || Date.now(),
-      raw: data
+      timestamp: data.timestamp || Date.now()
     };
     this.lastPayload = payload;
 

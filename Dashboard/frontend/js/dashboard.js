@@ -13,27 +13,49 @@
       window.setupDashboardClock('clock-display');
     }
 
-    if (typeof window.setupTerrainAngleUpdater === 'function') {
-      window.setupTerrainAngleUpdater(this);
-    }
   }
 
   updateTelemetry(data) {
     try {
       Object.assign(this.telemetryData, data);
 
-      this.updateConnectionBadge(data);
-      this.updateCenterGauge(data);
-      this.updateLeftColumn(data);
-      this.updateHealthAndFuel(data);
-      this.updateStatusStrip(data);
-      this.updateRightColumn(data);
-      this.updateEfficiencyZones(data);
-      this.updateGearAdvice(data);
-      this.updateIATab(data);
-      this.updateTrabajoView(data);
+      // Contador real de muestras grabadas (lo publica el backend, 1 muestra/s)
+      if (typeof data.sessionSamples === 'number') {
+        window._iaSampleCount = data.sessionSamples;
+      }
+
+      // Cada bloque aislado: un fallo en uno no debe dejar sin actualizar el resto
+      var self = this;
+      // Las curvas del dinamómetro se acumulan siempre, aunque la pestaña esté oculta
+      this.recordDyno(data);
+
+      // Solo se repinta lo que está visible (trabajo | dashboard | campo)
+      var tab = window._activeTab;
+      var names = ['updateConnectionBadge'];
+      if (!tab || tab === 'dashboard') {
+        names.push('updateCenterGauge', 'updateLeftColumn', 'updateHealthAndFuel',
+          'updateStatusStrip', 'updateRightColumn', 'updateEfficiencyZones', 'updateGearAdvice');
+      }
+      if (!tab || tab === 'campo') names.push('updateIATab');
+      if (!tab || tab === 'trabajo') names.push('updateTrabajoView');
+
+      names.forEach(function (name) {
+        try {
+          self[name](data);
+        } catch (error) {
+          console.error('Error en ' + name + ':', error);
+        }
+      });
     } catch (error) {
       console.error('Error en updateTelemetry:', error);
+    }
+  }
+
+  recordDyno(data) {
+    var vehicleName = data.vehicleName || '';
+    var rpm = data.engineSpeed || 0;
+    if (vehicleName && rpm > 0) {
+      this.dynoChart.record(vehicleName, rpm, data.maxTorqueNm || 0, data.motorTorque || 0);
     }
   }
 
@@ -128,7 +150,7 @@
       powerCvEl.textContent = Math.round(powerCV);
     }
 
-    // Dinamómetro — acumular curvas + renderizar
+    // Dinamómetro — render (las curvas se acumulan en recordDyno)
     var vehicleName = data.vehicleName || '';
     var rpm         = data.engineSpeed || 0;
     var torque      = data.motorTorque || 0;
@@ -138,9 +160,6 @@
     var mrPeakRpm   = data.mrPeakPowerRpm   || 0;
     var mrEcoRpm    = data.mrMinEcoRpm      || 0;
 
-    if (vehicleName && rpm > 0) {
-      this.dynoChart.record(vehicleName, rpm, maxTorque, torque);
-    }
     this.dynoChart.render(vehicleName, rpm, torque, maxTorque, mrBandMin, mrBandMax, mrPeakRpm, mrEcoRpm);
   }
 
@@ -250,7 +269,7 @@
 
     var statusTempEl = document.getElementById('status-temp');
     if (statusTempEl) {
-      statusTempEl.firstChild.textContent = Math.round(data.motorTemperature || 20);
+      statusTempEl.firstChild.textContent = Math.round(data.motorTemperature ?? 20);
     }
 
     var stripLoadEl = document.getElementById('strip-load');
@@ -260,7 +279,7 @@
 
     var stripFuelEl = document.getElementById('strip-fuel');
     if (stripFuelEl) {
-      stripFuelEl.textContent = Math.round(data.fuelPercentage || 100) + '%';
+      stripFuelEl.textContent = Math.round(data.fuelPercentage ?? 100) + '%';
     }
 
     var stripRpmEl = document.getElementById('strip-rpm');
@@ -396,12 +415,7 @@
         barEl.className = 'wheel-torque-bar';
         if      (pct > 80) barEl.classList.add('high');
         else if (pct > 50) barEl.classList.add('med');
-        // Track: limpiar cualquier clase rr-* anterior
-        var trackEl = barEl.parentNode;
-        if (trackEl) trackEl.className = 'wt-bar-track';
       }
-      // Limpiar clases rr-* del approach anterior (border en cellEl)
-      if (cellEl) cellEl.classList.remove('rr-soft', 'rr-field', 'rr-soggy');
       if (torqEl) torqEl.textContent = Math.round(pct);
 
       // Slip longitudinal: prefer MR longSlip when available (more precise)
@@ -673,10 +687,7 @@
       gearEl.textContent = window.TelemetryUI.formatGearDisplay(data);
     }
 
-    // Contador de muestras grabadas en esta sesión
-    if (recording) {
-      window._iaSampleCount = (window._iaSampleCount || 0) + 1;
-    }
+    // Contador de muestras grabadas: lo actualiza updateTelemetry desde el backend
     var scEl = document.getElementById('ia-sample-count');
     if (scEl) {
       var sc = window._iaSampleCount || 0;

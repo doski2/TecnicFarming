@@ -35,32 +35,23 @@ class UIUpdater {
       });
     });
 
-    // Add click handlers for potential future interactions
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', () => {
-        this.handleNavClick(item);
-      });
-    });
-  }
-
-  /**
-   * Handle navigation clicks
-   * @param {HTMLElement} element - Clicked element
-   */
-  handleNavClick(element) {
-    console.log('Nav item clicked:', element.textContent);
   }
 
   /**
    * Start main update loop
    */
   startUpdateLoop() {
-    const update = () => {
-      this.updateAnimations();
+    let last = 0;
+    const update = (now) => {
+      // Brillos/estados de tarjetas: 4 Hz es suficiente (antes se reescribían en cada frame)
+      if (now - last >= 250) {
+        last = now;
+        this.updateAnimations();
+      }
       this.animationFrameId = requestAnimationFrame(update);
     };
 
-    update();
+    this.animationFrameId = requestAnimationFrame(update);
   }
 
   /**

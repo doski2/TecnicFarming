@@ -21,13 +21,11 @@ Ejecuta las **3 suites** en orden. Requisitos: Node.js 16+, Python 3.10+ (para a
 
 | #   | Suite    | Comando                                  | Tests | Qué valida                                                                 |
 | --- | -------- | ---------------------------------------- | ----- | -------------------------------------------------------------------------- |
-| 1   | Backend  | `cd Dashboard/backend && npm test`       | 23    | `TelemetryService`: parseo, EMA, chunks, tracción, JSONL, payload cliente  |
-| 2   | Frontend | `node Tests/frontend_logic.test.js`      | 9     | `gauge.js`, `work-types.js`, `telemetry-ui.js`                             |
-| 3   | Análisis | `python Scripts/test_analyze_session.py` | 20    | `analyze_session.py`: promedios, perfiles de campo, distribuciones         |
+| 1   | Backend  | `cd Dashboard/backend && npm test`       | 28    | `TelemetryService`: parseo, EMA, chunks, tracción, JSONL, payload cliente  |
+| 2   | Frontend | `node Tests/frontend_logic.test.js`      | 10    | `gauge.js`, `work-types.js`, `telemetry-ui.js`                             |
+| 3   | Análisis | `python Scripts/test_analyze_session.py` | 23    | `analyze_session.py`: promedios, perfiles de campo, distribuciones         |
 
-### Total: 52 tests
-
-> `Scripts/test_telemetry.js` está **deprecado** — redirige a `npm test` en el backend.
+### Total: 61 tests
 
 ---
 
@@ -47,7 +45,6 @@ python Scripts\test_analyze_session.py
 Dashboard/backend/Tests/telemetry.test.js   # Suite unificada de telemetría
 Tests/frontend_logic.test.js
 Scripts/test_analyze_session.py
-Scripts/test_telemetry.js                   # Deprecado → npm test
 ```
 
 ---

@@ -45,7 +45,7 @@ Usa este checklist para verificar que todo está correctamente configurado.
 Deberías ver:
 
 🚀 Dashboard FS25 Backend iniciado
-✓ HTTP/WebSocket escuchando: <http://0.0.0.0:8080>
+✓ HTTP/WebSocket escuchando: <http://127.0.0.1:8080>
 ✓ Update frequency: 16.66ms (60 FPS)
 
 - [ ] Servidor iniciado sin errores

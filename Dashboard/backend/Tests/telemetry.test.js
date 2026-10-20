@@ -318,3 +318,50 @@ describe('resolvePipeName', () => {
     assert.strictEqual(resolvePipeName(), expected);
   });
 });
+
+describe('isInVehicle (B1)', () => {
+  test('al salir del vehículo se limpia el estado y no se graba', () => {
+    const svc = new TelemetryService(mockLogger);
+    svc.parseData({ rpm: 1800, speed: 8, implementLowered: true, implementWorking: true, workType: 'HARVESTER' });
+    assert.strictEqual(svc.currentData.implementLowered, true);
+
+    svc.parseData({ isInVehicle: false });
+    assert.strictEqual(svc.currentData.isInVehicle, false);
+    assert.strictEqual(svc.currentData.rpm, 0);
+    assert.strictEqual(svc.currentData.speed, 0);
+    assert.strictEqual(svc.currentData.implementLowered, false);
+    assert.strictEqual(svc.currentData.implementWorking, false);
+  });
+
+  test('_logSample no graba si isInVehicle es false', () => {
+    const svc = new TelemetryService(mockLogger);
+    svc._logSample({ ...validLogSample(), isInVehicle: false });
+    assert.strictEqual(svc._sessionFile, null);
+  });
+
+  test('al volver a un vehículo se restablece isInVehicle', () => {
+    const svc = new TelemetryService(mockLogger);
+    svc.parseData({ isInVehicle: false });
+    svc.parseData({ isInVehicle: true, rpm: 1200 });
+    assert.strictEqual(svc.currentData.isInVehicle, true);
+    assert.strictEqual(svc.currentData.rpm, 1200);
+  });
+});
+
+describe('isRecording y sessionSamples (B4/B8)', () => {
+  test('grabando solo con datos reales (no mock) y dentro del vehículo', () => {
+    const svc = new TelemetryService(mockLogger);
+    svc.isRealData = true;
+    svc.parseData({ speed: 5, implementLowered: true, telemetrySource: 'fs25' });
+    assert.strictEqual(svc.getCurrentData().isRecording, true);
+
+    svc.parseData({ telemetrySource: 'mock' });
+    assert.strictEqual(svc.getCurrentData().isRecording, false);
+  });
+
+  test('payload incluye sessionSamples', () => {
+    const svc = new TelemetryService(mockLogger);
+    svc._sessionSamples = 7;
+    assert.strictEqual(svc.getCurrentData().sessionSamples, 7);
+  });
+});

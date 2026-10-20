@@ -80,7 +80,7 @@ npm start
 
 Deberías ver:
 
-✓ HTTP/WebSocket escuchando: <http://0.0.0.0:8080>
+✓ HTTP/WebSocket escuchando: <http://127.0.0.1:8080>
 ✓ Socket.io namespace: /telemetry
 ✓ Update frequency: 16.66ms (60 FPS)
 

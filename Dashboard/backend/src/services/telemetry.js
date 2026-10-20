@@ -34,13 +34,14 @@ export default class TelemetryService {
     this.updateCallback = null;
     this.isConnected = false;
     this.isRealData = false;
-    this.updateInterval = parseInt(process.env.UPDATE_FREQUENCY_MS) || 16.66;
+    this.updateInterval = parseInt(process.env.UPDATE_FREQUENCY_MS) || 33;
     this.clientCount = 0;
     this.buffer = '';
     this.pendingObject = '';
     this._lastLogMs = 0;   // throttle logger a 1 muestra/s
     this._sessionFile = null; // ruta del .jsonl activo
     this._activeCampo = -1;   // campo seleccionado desde el frontend (-1 = sin campo)
+    this._sessionSamples = 0; // muestras grabadas en el archivo de sesión activo
     this._massEma = null;     // EMA de totalMassT — filtra oscilaciones dinámicas de carga de rueda
     this._emitInterval = null;
     this._pipeListening = false;
@@ -92,10 +93,31 @@ export default class TelemetryService {
       workType: 'TRANSPORT',
       cropType: '',
       isMotorStarted: false,
+      isInVehicle: true,
       transmissionType: 'manual',
       telemetrySource: '',
       timestamp: Date.now()
     };
+  }
+
+  /** Cambia el campo activo; la próxima muestra abrirá un archivo nuevo. */
+  setActiveCampo(campo) {
+    this._activeCampo = campo;
+    this._sessionFile = null;
+    this._sessionSamples = 0;
+  }
+
+  /** Ruta del .jsonl de la sesión activa (o null). */
+  getSessionFile() {
+    return this._sessionFile;
+  }
+
+  /** Suelta la sesión activa si coincide con `filePath` (p. ej. al borrar el archivo). */
+  releaseSessionFile(filePath) {
+    if (this._sessionFile === filePath) {
+      this._sessionFile = null;
+      this._sessionSamples = 0;
+    }
   }
 
   /**
@@ -274,6 +296,21 @@ export default class TelemetryService {
    * Parsear datos del JSON de SHTelemetry
    */
   parseData(obj) {
+    // Fuera del vehículo el mod solo envía isInVehicle=false: limpiar el estado
+    // dependiente del vehículo para no grabar ni mostrar datos obsoletos.
+    if (obj.isInVehicle === false) {
+      Object.assign(this.currentData, {
+        isInVehicle: false,
+        rpm: 0, speed: 0, torque: 0, powerKW: 0, engineLoad: 0, accelerator: 0,
+        consumption: 0, isMotorStarted: false,
+        implementLowered: false, implementWorking: false
+      });
+      this._massEma = null;
+      this.currentData.timestamp = Date.now();
+      return;
+    }
+    this.currentData.isInVehicle = true;
+
     // Mapeo directo
     if (obj.rpm !== undefined) this.currentData.rpm = obj.rpm;
     if (obj.fuelUsage !== undefined) this.currentData.consumption = obj.fuelUsage;
@@ -374,10 +411,17 @@ export default class TelemetryService {
   /**
    * Logger JSONL — graba 1 muestra/s cuando la herramienta está trabajando
    */
+  /** Única fuente de verdad de "grabando": misma condición que _logSample + datos reales. */
+  _isRecording(data) {
+    return !!(this.isRealData && data.telemetrySource !== 'mock' && data.isInVehicle !== false
+      && data.implementLowered && Math.abs(data.speed || 0) >= 0.3);
+  }
+
   _logSample(data) {
     // Grabar cuando el implemento está bajado Y el vehículo se mueve (> 0.3 km/h)
     // No filtramos por implementWorking — la detección Lua puede ser conservadora (spec_cutter.isWorking
     // es false en cabeceras o al inicio del pase antes de tocar el cultivo)
+    if (data.isInVehicle === false) return;
     const speed = Math.abs(data.speed || 0);
     if (!data.implementLowered || speed < 0.3) return;
 
@@ -396,6 +440,7 @@ export default class TelemetryService {
 
     if (this._sessionFile !== filePath) {
       this._sessionFile = filePath;
+      this._sessionSamples = 0;
       try {
         if (!existsSync(sessionDir)) mkdirSync(sessionDir, { recursive: true });
       } catch (err) {
@@ -440,6 +485,7 @@ export default class TelemetryService {
 
     try {
       appendFileSync(filePath, JSON.stringify(sample) + '\n', 'utf8');
+      this._sessionSamples++;
     } catch (err) {
       this.logger.error(`Logger: error escribiendo muestra: ${err.message}`);
     }
@@ -517,6 +563,8 @@ export default class TelemetryService {
       powerHP: powerKW * 1.35962,
       mrAvgDrivenWheelsSlip: data.mrAvgDrivenWheelsSlip
         ?? TelemetryService.computeMrAvgDrivenWheelsSlip(wheelTraction),
+      isRecording: this._isRecording(data),
+      sessionSamples: this._sessionSamples,
       isRealData: this.isRealData,
       isConnected: this.isConnected,
       timestamp: data.timestamp || Date.now()

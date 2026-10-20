@@ -12,6 +12,10 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import analyze_session
 
+# Los tests nunca deben tocar el perfil real (Data/campo_profiles.json)
+_TMP_DIR = tempfile.mkdtemp()
+analyze_session.PROFILES_PATH = os.path.join(_TMP_DIR, 'campo_profiles.json')
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _make_sample(motor_load=75.0, speed=8.0, rpm=1800, accelerator=80.0,
@@ -246,6 +250,38 @@ class TestSaveProfile(unittest.TestCase):
             self.assertIsNone(profile)
         finally:
             os.unlink(path)
+
+
+class TestPerfilRobusto(unittest.TestCase):
+
+    def _result(self, n):
+        return {'campo': 5, 'work_type': 'SOWER', 'samples': n, 'recommended_accelerator': 50.0,
+                'avg_motor_load': 70.0, 'avg_speed_kmh': 6.0, 'avg_fuel_lh': 10.0,
+                'avg_rpm': 1800, 'vehicle': 'X'}
+
+    def test_archivo_creciente_suma_solo_delta(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'p.json')
+            analyze_session._save_profile(self._result(40), path, source_file='a.jsonl')
+            p = analyze_session._save_profile(self._result(100), path, source_file='a.jsonl')
+            self.assertEqual(p['total_samples'], 100)
+            self.assertEqual(p['sessions'], 1)
+
+    def test_mismo_tamano_no_cambia(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'p.json')
+            analyze_session._save_profile(self._result(40), path, source_file='a.jsonl')
+            p = analyze_session._save_profile(self._result(40), path, source_file='a.jsonl')
+            self.assertEqual(p['total_samples'], 40)
+
+    def test_json_corrupto_se_aparta_a_bak(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'p.json')
+            with open(path, 'w') as f:
+                f.write('{corrupto')
+            p = analyze_session._save_profile(self._result(40), path, source_file='a.jsonl')
+            self.assertEqual(p['total_samples'], 40)
+            self.assertTrue(os.path.isfile(path + '.bak'))
 
 
 class TestConDatosReales(unittest.TestCase):

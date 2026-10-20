@@ -12,6 +12,8 @@
   }
 
   function isRecording(data) {
+    // El backend calcula el estado real (datos reales, no mock, dentro del vehículo)
+    if (typeof data.isRecording === 'boolean') return data.isRecording;
     return !!(data.implementLowered && Math.abs(data.speed || 0) > 0.3);
   }
 

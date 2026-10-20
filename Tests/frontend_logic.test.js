@@ -151,6 +151,15 @@ describe('Frontend - TelemetryUI', () => {
     assert.strictEqual(ui.isRecording({ implementLowered: false, speed: 10 }), false);
   });
 
+  test('isRecording prioriza el valor calculado por el backend', () => {
+    evalTelemetryUI();
+    const ui = global.window.TelemetryUI;
+
+    // Con simulador el backend dice false aunque implemento+velocidad cumplan
+    assert.strictEqual(ui.isRecording({ isRecording: false, implementLowered: true, speed: 5 }), false);
+    assert.strictEqual(ui.isRecording({ isRecording: true }), true);
+  });
+
   test('slipPercent usa longSlip trasero', () => {
     evalTelemetryUI();
     const ui = global.window.TelemetryUI;

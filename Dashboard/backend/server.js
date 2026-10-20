@@ -15,18 +15,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Inicializar Express
+// Solo acceso local por defecto (HOST=0.0.0.0 en .env para abrirlo a la red)
+const HOST = process.env.HOST || '127.0.0.1';
+const PORT = process.env.SOCKET_IO_PORT || 8080;
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: process.env.CORS_ORIGIN || `http://localhost:${PORT}`,
     methods: ['GET', 'POST']
   }
 });
 
 // Middleware
 app.use(express.static(path.join(__dirname, '../frontend')));
-app.use(express.json());
+app.use(express.json({ limit: '10kb' }));
 
 // Crear carpeta logs + rotar al arrancar (debug.log → debug.prev.log)
 const LOGS_DIR = path.join(__dirname, 'logs');
@@ -40,22 +44,25 @@ if (fs.existsSync(LOG_FILE)) {
   try { fs.renameSync(LOG_FILE, LOG_PREV); } catch (_) { /* sin permisos, continuar */ }
 }
 
-// Logger simple
+// Logger simple (escritura en stream: no bloquea el event loop)
+const logStream = fs.createWriteStream(LOG_FILE, { flags: 'a', encoding: 'utf8' });
+logStream.on('error', () => { /* sin permisos de escritura: seguir solo con consola */ });
+
 const logger = {
   info: (msg) => {
     const output = `[INFO] ${new Date().toISOString()} - ${msg}`;
     console.log(output);
-    fs.appendFileSync(LOG_FILE, output + '\n', 'utf8');
+    logStream.write(output + '\n');
   },
   error: (msg) => {
     const output = `[ERROR] ${new Date().toISOString()} - ${msg}`;
     console.error(output);
-    fs.appendFileSync(LOG_FILE, output + '\n', 'utf8');
+    logStream.write(output + '\n');
   },
   warn: (msg) => {
     const output = `[WARN] ${new Date().toISOString()} - ${msg}`;
     console.warn(output);
-    fs.appendFileSync(LOG_FILE, output + '\n', 'utf8');
+    logStream.write(output + '\n');
   }
 };
 
@@ -66,7 +73,7 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/config', (req, res) => {
   res.json({
-    updateFrequency: process.env.UPDATE_FREQUENCY_MS || 16.66,
+    updateFrequency: process.env.UPDATE_FREQUENCY_MS || 33,
     maxBufferSize: process.env.MAX_BUFFER_SIZE || 1000
   });
 });
@@ -111,7 +118,7 @@ nsp.on('connection', (socket) => {
 
 // Telemetría: se inicia tras enlazar HTTP (evita bucle si el puerto 8080 está ocupado)
 let emissionCount = 0;
-const LOG_EVERY = Math.max(1, Math.round(1000 / (parseInt(process.env.UPDATE_FREQUENCY_MS) || 50)));
+const LOG_EVERY = Math.max(1, Math.round(1000 / (parseInt(process.env.UPDATE_FREQUENCY_MS) || 33)));
 
 function startTelemetryCollection() {
   logger.info('Iniciando recolección de datos...');
@@ -143,9 +150,8 @@ app.post('/api/session/campo', (req, res) => {
   if (isNaN(campo) || campo < -1 || campo > 99) {
     return res.status(400).json({ error: 'Número de campo inválido (rango: -1 a 99)' });
   }
-  telemetryService._activeCampo = campo;
-  // Forzar nuevo archivo al cambiar de campo (la próxima muestra abrirá uno nuevo)
-  telemetryService._sessionFile = null;
+  // Fuerza nuevo archivo al cambiar de campo (la próxima muestra abrirá uno nuevo)
+  telemetryService.setActiveCampo(campo);
   logger.info(`Campo activo cambiado a: ${campo === -1 ? 'Sin campo' : 'Campo ' + campo}`);
   res.json({ ok: true, campo });
 });
@@ -185,14 +191,16 @@ app.get('/api/analyze/sessions', (req, res) => {
   }
 });
 
-app.get('/api/analyze', (req, res) => {
-  // Prioridad: sesión activa del servicio; fallback: ?file=nombre.jsonl
-  let targetFile = telemetryService._sessionFile || null;
+let analyzing = false;
 
-  if (!targetFile && req.query.file) {
+app.get('/api/analyze', (req, res) => {
+  // Prioridad: ?file= explícito; fallback: sesión activa del servicio
+  let targetFile = null;
+
+  if (req.query.file) {
     // Validar: acepta "campo_3/filename.jsonl" o solo "filename.jsonl"
     // Cada segmento se valida por separado para evitar path-traversal
-    const raw      = req.query.file;
+    const raw      = String(req.query.file);
     const parts    = raw.split('/');
     if (parts.length > 2) {
       return res.status(400).json({ error: 'Ruta de archivo inválida' });
@@ -210,6 +218,8 @@ app.get('/api/analyze', (req, res) => {
     } else {
       targetFile = path.join(DATA_DIR_API, fileName);
     }
+  } else {
+    targetFile = telemetryService.getSessionFile();
   }
 
   if (!targetFile || !fs.existsSync(targetFile)) {
@@ -221,9 +231,28 @@ app.get('/api/analyze', (req, res) => {
     return res.status(500).json({ error: 'Script de análisis no encontrado: ' + scriptPath });
   }
 
+  // Un solo análisis a la vez: cada petición lanza un proceso Python
+  if (analyzing) {
+    return res.status(429).json({ error: 'Ya hay un análisis en curso, espera unos segundos.' });
+  }
+  analyzing = true;
+
   let stdout = '';
   let stderr = '';
+  let finished = false;
+  let killTimer = null;
+  const done = (status, body) => {
+    if (finished) return;
+    finished = true;
+    analyzing = false;
+    clearTimeout(killTimer);
+    res.status(status).json(body);
+  };
   const py = spawn('python', [scriptPath, targetFile]);
+  killTimer = setTimeout(() => {
+    py.kill();
+    done(504, { error: 'El análisis tardó demasiado (timeout 20 s).' });
+  }, 20000);
 
   py.stdout.on('data', d => { stdout += d.toString(); });
   py.stderr.on('data', d => { stderr += d.toString(); });
@@ -231,19 +260,19 @@ app.get('/api/analyze', (req, res) => {
   py.on('close', code => {
     if (code !== 0 || !stdout.trim()) {
       logger.error(`analyze_session.py stderr: ${stderr}`);
-      return res.status(500).json({ error: 'Error ejecutando análisis: ' + (stderr || 'sin salida') });
+      return done(500, { error: 'Error ejecutando análisis: ' + (stderr || 'sin salida') });
     }
     try {
       const result = JSON.parse(stdout.trim());
       result.sessionFile = path.basename(targetFile);
-      res.json(result);
+      done(200, result);
     } catch (e) {
-      res.status(500).json({ error: 'Respuesta Python inválida: ' + stdout.slice(0, 200) });
+      done(500, { error: 'Respuesta Python inválida: ' + stdout.slice(0, 200) });
     }
   });
 
   py.on('error', err => {
-    res.status(500).json({ error: 'No se pudo ejecutar Python: ' + err.message });
+    done(500, { error: 'No se pudo ejecutar Python: ' + err.message });
   });
 });
 
@@ -265,9 +294,7 @@ app.delete('/api/session/file', (req, res) => {
     return res.status(404).json({ error: 'Archivo no encontrado' });
   }
 
-  if (telemetryService._sessionFile === filePath) {
-    telemetryService._sessionFile = null;
-  }
+  telemetryService.releaseSessionFile(filePath);
 
   try {
     fs.unlinkSync(filePath);
@@ -318,7 +345,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // INICIAR SERVIDOR
-const SOCKET_IO_PORT = process.env.SOCKET_IO_PORT || 8080;
+const SOCKET_IO_PORT = PORT;
 
 httpServer.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
@@ -329,13 +356,13 @@ httpServer.on('error', (err) => {
   process.exit(1);
 });
 
-httpServer.listen(SOCKET_IO_PORT, '0.0.0.0', () => {
+httpServer.listen(SOCKET_IO_PORT, HOST, () => {
   logger.info(`═════════════════════════════════════════════════════`);
   logger.info(`🚀 Dashboard FS25 Backend - INICIADO`);
   logger.info(`═════════════════════════════════════════════════════`);
-  logger.info(`✓ HTTP/WebSocket escuchando en: http://localhost:${SOCKET_IO_PORT}`);
+  logger.info(`✓ HTTP/WebSocket escuchando en: http://${HOST}:${SOCKET_IO_PORT}`);
   logger.info(`✓ Socket.io namespace: /telemetry`);
-  const updateMs = parseFloat(process.env.UPDATE_FREQUENCY_MS) || 16.66;
+  const updateMs = parseFloat(process.env.UPDATE_FREQUENCY_MS) || 33;
   logger.info(`✓ Named Pipe SHTelemetry: ${resolvePipeName()}`);
   logger.info(`✓ Update frequency: ${updateMs}ms (${Math.round(1000 / updateMs)} FPS)`);
   logger.info(`✓ Environment: ${process.env.NODE_ENV || 'development'}`);
