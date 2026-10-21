@@ -202,3 +202,79 @@ describe('Frontend - WorkTypes', () => {
     assert.strictEqual(wt.getLabel(null, 'short'), '—');
   });
 });
+
+describe('Frontend - DynoChart', () => {
+  const DYNO_PATH = path.join(__dirname, '..', 'Dashboard', 'frontend', 'js', 'modules', 'dyno-chart.js');
+  const dynoCode = fs.readFileSync(DYNO_PATH, 'utf8');
+
+  /** Evalúa dyno-chart.js con un localStorage simulado y devuelve { DynoChart, store } */
+  function loadDyno(initial) {
+    const store = Object.assign({}, initial);
+    const localStorage = {
+      getItem: (k) => (k in store ? store[k] : null),
+      setItem: (k, v) => { store[k] = String(v); },
+    };
+    const DynoChart = new Function('localStorage', 'document', 'window', dynoCode + '\nreturn DynoChart;')(
+      localStorage, {}, {}
+    );
+    return { DynoChart, store };
+  }
+
+  test('record acumula pico y curva aplicada por bucket de 25 rpm', () => {
+    const { DynoChart } = loadDyno();
+    const d = new DynoChart();
+    d.record('T1', 1500, 900, 400);
+    d.record('T1', 1510, 900, 450);
+    assert.strictEqual(d.curves.T1.max[1500], 450);
+    assert.ok(d.curves.T1.applied[1500] > 0);
+  });
+
+  test('record ignora rpm bajas y transitorios', () => {
+    const { DynoChart } = loadDyno();
+    const d = new DynoChart();
+    d.record('T1', 300, 0, 500);
+    assert.strictEqual(d.curves.T1, undefined);
+
+    const realNow = Date.now;
+    let t = 1000;
+    Date.now = () => t;
+    try {
+      d.record('T1', 1500, 0, 400);
+      t += 100;
+      d.record('T1', 2500, 0, 900); // 10000 rpm/s → transitorio
+      assert.strictEqual(d.curves.T1.max[2500], undefined);
+    } finally { Date.now = realNow; }
+  });
+
+  test('reset borra solo el vehículo indicado y persiste', () => {
+    const { DynoChart, store } = loadDyno();
+    const d = new DynoChart();
+    d.record('A', 1500, 0, 400);
+    d.record('B', 1500, 0, 400);
+    d.reset('A');
+    assert.strictEqual(d.curves.A, undefined);
+    assert.ok(d.curves.B);
+    assert.ok(!JSON.parse(store.dyno_curves_v4).A);
+  });
+
+  test('_load descarta datos corruptos y valida valores', () => {
+    const bad = JSON.stringify({ X: 'basura', Y: { max: { '1500': 'abc', '1600': 300 }, applied: null } });
+    const { DynoChart } = loadDyno({ dyno_curves_v4: bad });
+    const d = new DynoChart();
+    assert.strictEqual(d.curves.X, undefined);
+    assert.deepStrictEqual(d.curves.Y.max, { 1600: 300 });
+    assert.doesNotThrow(() => d._computeScales('Y'));
+  });
+
+  test('persistencia limita el número de vehículos', () => {
+    const { DynoChart, store } = loadDyno();
+    const d = new DynoChart();
+    for (let i = 0; i < 35; i++) {
+      d.curves['V' + i] = { max: { 1500: 100 }, applied: {}, t: i + 1 };
+    }
+    d._flush();
+    const saved = JSON.parse(store.dyno_curves_v4);
+    assert.strictEqual(Object.keys(saved).length, 30);
+    assert.ok(saved.V34 && !saved.V0);
+  });
+});

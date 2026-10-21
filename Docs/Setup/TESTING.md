@@ -22,7 +22,7 @@ Ejecuta las **3 suites** en orden. Requisitos: Node.js 16+, Python 3.10+ (para a
 | #   | Suite    | Comando                                  | Tests | Qué valida                                                                 |
 | --- | -------- | ---------------------------------------- | ----- | -------------------------------------------------------------------------- |
 | 1   | Backend  | `cd Dashboard/backend && npm test`       | 28    | `TelemetryService`: parseo, EMA, chunks, tracción, JSONL, payload cliente  |
-| 2   | Frontend | `node Tests/frontend_logic.test.js`      | 10    | `gauge.js`, `work-types.js`, `telemetry-ui.js`                             |
+| 2   | Frontend | `node Tests/frontend_logic.test.js`      | 15    | `gauge.js`, `work-types.js`, `telemetry-ui.js`, `dyno-chart.js`            |
 | 3   | Análisis | `python Scripts/test_analyze_session.py` | 23    | `analyze_session.py`: promedios, perfiles de campo, distribuciones         |
 
 ### Total: 61 tests

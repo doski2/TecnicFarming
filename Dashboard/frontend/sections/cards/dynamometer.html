@@ -1,16 +1,18 @@
 <div class="card panel-surface">
-  <div class="card-title lime">Dynamometer <span id="dyno-vehicle-name">—</span></div>
+  <div class="card-title lime">Dynamometer <span id="dyno-vehicle-name">—</span>
+    <button type="button" id="dyno-reset-btn" class="dyno-reset-btn" title="Borrar la curva guardada de este vehículo" aria-label="Reiniciar curva del dinamómetro">↺</button>
+  </div>
 
   <!-- Leyenda -->
   <div class="dyno-legend">
-    <span class="dyno-leg-item"><span class="dyno-leg-dot dyno-leg-dot--amber"></span>Par Máx</span>
+    <span class="dyno-leg-item"><span class="dyno-leg-dot dyno-leg-dot--amber"></span>Par Pico</span>
     <span class="dyno-leg-item"><span class="dyno-leg-dot dyno-leg-dot--teal"></span>Par Aplicado</span>
     <span class="dyno-leg-item" id="dyno-mr-legend"><span class="dyno-leg-dot dyno-leg-dot--mr"></span>Zona Potencia MR</span>
   </div>
 
   <div class="chart-container dyno-container dyno-chart">
     <!-- uPlot canvas — DynoChart v4 lo inicializa en el primer frame de telemetría -->
-    <div id="dyno-canvas-wrap" class="dyno-uplot-wrap"></div>
+    <div id="dyno-canvas-wrap" class="dyno-uplot-wrap" role="img" aria-label="Curvas de par motor frente a rpm: par pico y par aplicado"></div>
 
     <!-- Etiquetas eje RPM -->
     <div class="dyno-rpm-axis">
@@ -21,7 +23,7 @@
 
   <div class="chart-meta">
     <div class="chart-stat">PAR APLIC <span class="cs-amber" id="dyno-torque-val">0</span><small> Nm</small></div>
-    <div class="chart-stat">PAR MÁX <span class="cs-yellow" id="dyno-max-val">0</span><small> Nm</small></div>
+    <div class="chart-stat">PAR PLACA <span class="cs-yellow" id="dyno-max-val">0</span><small> Nm</small></div>
     <div class="chart-stat">CARGA <span class="cs-lime" id="dyno-load-val">0%</span></div>
     <div class="chart-stat">RPM <span class="cs-teal" id="dyno-rpm-val">0</span></div>
   </div>
