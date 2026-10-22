@@ -7,6 +7,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // __dirname = Dashboard/backend/src/services/  → 4 niveles arriba = raíz del proyecto
 const DATA_DIR = join(__dirname, '..', '..', '..', '..', 'Data', 'sessions');
 
+/** Tipos de trabajo que se graban: solo trabajo en campo (TRANSPORT y UNKNOWN no aportan al análisis). */
+export const RECORDABLE_WORK_TYPES = new Set([
+  'HARVESTER', 'SOWER', 'CULTIVATOR', 'PLOW', 'MOWER', 'BALER', 'SPRAYER', 'FERTILIZER', 'FIELDWORK'
+]);
+
 /** Ruta Windows \\.\pipe\NAME — tolera .env con escapes duplicados (\\\\.\\pipe\\...) */
 export function resolvePipeName() {
   const raw = (process.env.NAMED_PIPE_NAME || 'SHTelemetry').trim().replace(/^["']|["']$/g, '');
@@ -326,6 +331,8 @@ export default class TelemetryService {
       this.currentData.telemetrySource = 'fs25';
     }
     if (obj.motorLoad !== undefined) this.currentData.engineLoad = obj.motorLoad;
+    // Patinaje medio de ruedas motrices calculado por MoreRealistic (0-1); si no llega, se calcula en toClientPayload
+    if (obj.mrAvgDrivenWheelsSlip !== undefined) this.currentData.mrAvgDrivenWheelsSlip = obj.mrAvgDrivenWheelsSlip;
     if (obj.cropType !== undefined) this.currentData.cropType = obj.cropType;
     if (obj.accelerator !== undefined) this.currentData.accelerator = obj.accelerator;
     if (obj.speed !== undefined) this.currentData.speed = obj.speed;
@@ -414,6 +421,7 @@ export default class TelemetryService {
   /** Única fuente de verdad de "grabando": misma condición que _logSample + datos reales. */
   _isRecording(data) {
     return !!(this.isRealData && data.telemetrySource !== 'mock' && data.isInVehicle !== false
+      && RECORDABLE_WORK_TYPES.has(data.workType)
       && data.implementLowered && Math.abs(data.speed || 0) >= 0.3);
   }
 
@@ -422,6 +430,7 @@ export default class TelemetryService {
     // No filtramos por implementWorking — la detección Lua puede ser conservadora (spec_cutter.isWorking
     // es false en cabeceras o al inicio del pase antes de tocar el cultivo)
     if (data.isInVehicle === false) return;
+    if (!RECORDABLE_WORK_TYPES.has(data.workType)) return;
     const speed = Math.abs(data.speed || 0);
     if (!data.implementLowered || speed < 0.3) return;
 

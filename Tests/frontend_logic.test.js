@@ -160,6 +160,13 @@ describe('Frontend - TelemetryUI', () => {
     assert.strictEqual(ui.isRecording({ isRecording: true }), true);
   });
 
+  test('slipPercent prioriza el patinaje de MoreRealistic', () => {
+    evalTelemetryUI();
+    const ui = global.window.TelemetryUI;
+    assert.strictEqual(ui.slipPercent({ mrAvgDrivenWheelsSlip: 0.18, wheelTraction: [{}, {}, { longSlip: 0.5 }, { longSlip: 0.5 }] }), 18);
+    assert.strictEqual(ui.slipPercent({ mrAvgDrivenWheelsSlip: 3 }), 100);
+  });
+
   test('slipPercent usa longSlip trasero', () => {
     evalTelemetryUI();
     const ui = global.window.TelemetryUI;

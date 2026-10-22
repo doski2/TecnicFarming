@@ -352,11 +352,37 @@ describe('isRecording y sessionSamples (B4/B8)', () => {
   test('grabando solo con datos reales (no mock) y dentro del vehículo', () => {
     const svc = new TelemetryService(mockLogger);
     svc.isRealData = true;
-    svc.parseData({ speed: 5, implementLowered: true, telemetrySource: 'fs25' });
+    svc.parseData({ speed: 5, implementLowered: true, workType: 'SOWER', telemetrySource: 'fs25' });
     assert.strictEqual(svc.getCurrentData().isRecording, true);
 
     svc.parseData({ telemetrySource: 'mock' });
     assert.strictEqual(svc.getCurrentData().isRecording, false);
+  });
+
+  test('no graba transporte ni tipo desconocido (solo trabajo en campo)', () => {
+    const svc = new TelemetryService(mockLogger);
+    svc.isRealData = true;
+    svc._activeCampo = 1;
+    svc.parseData({ speed: 5, implementLowered: true, telemetrySource: 'fs25' });
+    ['TRANSPORT', 'UNKNOWN', ''].forEach((workType) => {
+      svc.parseData({ workType });
+      assert.strictEqual(svc.getCurrentData().isRecording, false, workType);
+      svc._logSample({ ...validLogSample(), workType });
+      assert.strictEqual(svc._sessionFile, null, workType);
+    });
+    ['HARVESTER', 'SOWER', 'CULTIVATOR', 'PLOW', 'MOWER', 'BALER', 'SPRAYER', 'FERTILIZER', 'FIELDWORK'].forEach((workType) => {
+      svc.parseData({ workType });
+      assert.strictEqual(svc.getCurrentData().isRecording, true, workType);
+    });
+  });
+
+  test('usa el patinaje de MoreRealistic si llega y calcula el propio si no', () => {
+    const svc = new TelemetryService(mockLogger);
+    svc.parseData({ mrAvgDrivenWheelsSlip: 0.12 });
+    assert.strictEqual(svc.getCurrentData().mrAvgDrivenWheelsSlip, 0.12);
+    const svc2 = new TelemetryService(mockLogger);
+    svc2.parseData({ wheelTraction: [{}, {}, { longSlip: 0.2 }, { longSlip: 0.4 }] });
+    assert.ok(Math.abs(svc2.getCurrentData().mrAvgDrivenWheelsSlip - 0.3) < 1e-9);
   });
 
   test('payload incluye sessionSamples', () => {

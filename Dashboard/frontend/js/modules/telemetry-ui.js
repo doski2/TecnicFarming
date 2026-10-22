@@ -17,8 +17,11 @@
     return !!(data.implementLowered && Math.abs(data.speed || 0) > 0.3);
   }
 
-  /** Patinaje medio trasero en % (0–100), alineado con _logSample del backend. */
+  /** Patinaje medio de ruedas motrices en % (0–100). Prioridad: valor de MoreRealistic (fracción 0–1). */
   function slipPercent(data) {
+    if (typeof data.mrAvgDrivenWheelsSlip === 'number' && data.mrAvgDrivenWheelsSlip > 0) {
+      return Math.min(100, Math.round(data.mrAvgDrivenWheelsSlip * 100));
+    }
     var wt = data.wheelTraction;
     if (Array.isArray(wt) && wt.length >= 4) {
       var slips = [];

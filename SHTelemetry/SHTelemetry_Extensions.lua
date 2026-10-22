@@ -78,35 +78,38 @@ end
 -- CAPTURA DE CARGA DE TRABAJO (IMPLEMENT USAGE)
 -- ============================================================================
 
--- Detecta el tipo de trabajo según las especializaciones del implemento
+-- Detecta el tipo de trabajo según las especializaciones del implemento.
+-- Nombres verificados contra el SDK de FS25 (dataS/scripts/vehicles/specializations):
+-- discos y subsoladores usan spec_cultivator; esparcidores y abonadoras usan spec_sprayer.
 local function detectWorkType(obj)
 	-- COSECHADORAS
 	if obj.spec_combine           ~= nil then return "HARVESTER"  end
 	if obj.spec_cutter            ~= nil then return "HARVESTER"  end
-	-- SEMBRADORAS / SEMBRADORAS DE PRECISION
+	-- SEMBRADORAS (FertilizingSowingMachine también registra spec_sowingMachine)
 	if obj.spec_sowingMachine            ~= nil then return "SOWER" end
-	if obj.spec_directSowingMachine      ~= nil then return "SOWER" end
 	if obj.spec_fertilizingSowingMachine ~= nil then return "SOWER" end
-	-- ABONADORAS / ESPARCIDORES
+	-- PULVERIZADORAS / ABONADORAS / ESPARCIDORES
 	if obj.spec_sprayer           ~= nil then return "SPRAYER"    end
-	if obj.spec_fertilizer        ~= nil then return "FERTILIZER" end
-	if obj.spec_manureSpreader    ~= nil then return "FERTILIZER" end
 	-- ARADOS
 	if obj.spec_plow              ~= nil then return "PLOW"       end
-	-- CULTIVADORES (FS25 usa varios nombres segun tipo)
-	if obj.spec_cultivator        ~= nil then return "CULTIVATOR" end
-	if obj.spec_disc              ~= nil then return "CULTIVATOR" end
-	if obj.spec_subsoiler         ~= nil then return "CULTIVATOR" end
-	if obj.spec_rollerCultivator  ~= nil then return "CULTIVATOR" end
+	-- CULTIVADORES y preparación del suelo
+	if obj.spec_cultivator            ~= nil then return "CULTIVATOR" end
+	if obj.spec_fertilizingCultivator ~= nil then return "CULTIVATOR" end
+	if obj.spec_mulcher               ~= nil then return "CULTIVATOR" end
+	if obj.spec_weeder                ~= nil then return "CULTIVATOR" end
+	if obj.spec_roller                ~= nil then return "CULTIVATOR" end
+	if obj.spec_plowPacker            ~= nil then return "CULTIVATOR" end
+	if obj.spec_ridgeFormer           ~= nil then return "CULTIVATOR" end
+	if obj.spec_stonePicker           ~= nil then return "CULTIVATOR" end
 	-- SEGADORAS / EMPACADORAS
 	if obj.spec_mower             ~= nil then return "MOWER"      end
-	if obj.spec_baler             ~= nil then return "BALER"      end
 	if obj.spec_tedder            ~= nil then return "MOWER"      end
 	if obj.spec_windrower         ~= nil then return "MOWER"      end
-	-- TRANSPORTE
-	if obj.spec_trailer           ~= nil then return "TRANSPORT"  end
-	-- FALLBACK: cualquier implemento con area de trabajo = trabajo de campo genérico
+	if obj.spec_baler             ~= nil then return "BALER"      end
+	-- FALLBACK: cualquier implemento con área de trabajo = trabajo de campo genérico
 	if obj.spec_workArea          ~= nil then return "FIELDWORK"  end
+	-- TRANSPORTE (remolques sin área de trabajo): no se graba
+	if obj.spec_trailer           ~= nil then return "TRANSPORT"  end
 	return "UNKNOWN"
 end
 
@@ -123,7 +126,7 @@ function SHTelemetry:captureWorkData(vehicle, telemetry)
 	-- para grabar aunque haya varios enganchados (p.ej. contrapeso frontal + sembradora).
 	local typePriority = {
 		HARVESTER = 10, SOWER = 9, CULTIVATOR = 8, PLOW = 7,
-		MOWER = 6, BALER = 6, SPRAYER = 5, FERTILIZER = 4, FIELDWORK = 3, TRANSPORT = 2
+		MOWER = 6, BALER = 6, SPRAYER = 5, FIELDWORK = 3, TRANSPORT = 2
 	}  -- UNKNOWN = 0 (no en tabla)
 
 	-- Función local: capturar datos de un objeto-implemento concreto hacia telemetry
@@ -150,11 +153,12 @@ function SHTelemetry:captureWorkData(vehicle, telemetry)
 		end
 
 		-- Lowered: usar getIsLowered() del SDK (vía jointDesc.moveDown del attacher joint)
+		-- El argumento es el valor devuelto por los enganches que no suben ni bajan
+		-- (remolques, contrapesos): false, para que no cuenten como "bajados".
 		if impl.getIsLowered ~= nil then
-			telemetry.implementLowered = impl:getIsLowered(true)
+			telemetry.implementLowered = impl:getIsLowered(false)
 		else
-			-- Sin método getIsLowered → asumir siempre bajado (p.ej. pesos frontales)
-			telemetry.implementLowered = true
+			telemetry.implementLowered = false
 		end
 
 		-- Fallback si getIsLowered() retorna false: usar spec_foldable.foldAnimTime.
@@ -191,19 +195,12 @@ function SHTelemetry:captureWorkData(vehicle, telemetry)
 			end
 		end
 
-		-- Para cosechadoras: spec_combine está en el VEHÍCULO, no en el cabezal
-		if not working and vehicle.spec_combine ~= nil then
-			if vehicle.spec_combine.isWorking ~= nil then
-				working = vehicle.spec_combine.isWorking
-			end
-		end
-
-		-- workArea isActive (puede funcionar en algunas versiones del juego)
+		-- Áreas de trabajo activas según el SDK (WorkArea:getIsWorkAreaActive)
 		if not working then
 			local specWork = impl.spec_workArea
-			if specWork ~= nil and specWork.workAreas ~= nil then
+			if specWork ~= nil and specWork.workAreas ~= nil and impl.getIsWorkAreaActive ~= nil then
 				for _, wa in ipairs(specWork.workAreas) do
-					if wa.isActive then working = true; break end
+					if impl:getIsWorkAreaActive(wa) then working = true; break end
 				end
 			end
 		end
@@ -281,18 +278,6 @@ function SHTelemetry:captureWorkData(vehicle, telemetry)
 		end
 	end
 
-	-- Buscar datos de trabajo (si existen spec_cylindered, spec_sprayer, etc.)
-	if vehicle.spec_cylindered ~= nil then
-		local spec = vehicle.spec_cylindered
-		if spec.currentLiters ~= nil and spec.capacity ~= nil then
-			telemetry.cylinderCurrentLiters = spec.currentLiters
-			telemetry.cylinderCapacity = spec.capacity
-			if spec.capacity > 0 then
-				telemetry.cylinderFillPercentage = (spec.currentLiters / spec.capacity) * 100
-			end
-		end
-	end
-
 	-- Detectar tipo de cultivo activo (solo cosechadoras).
 	-- spec_combine.lastValidInputFruitType persiste aunque el tanque esté vacío.
 	-- FruitType.UNKNOWN = 0; índices > 0 son cultivos válidos.
@@ -318,6 +303,11 @@ function SHTelemetry:captureWheelData(vehicle, telemetry)
 	local spec_wheels    = vehicle.spec_wheels
 	local spec_motorized = vehicle.spec_motorized
 	telemetry.wheelCount = 0
+
+	-- Patinaje medio de las ruedas motrices calculado por MoreRealistic (0-1)
+	if spec_wheels.mrAvgDrivenWheelsSlip ~= nil then
+		telemetry.mrAvgDrivenWheelsSlip = math.abs(spec_wheels.mrAvgDrivenWheelsSlip)
+	end
 
 	-- Inicializar array de tracción (4 ruedas: FL, FR, RL, RR)
 	telemetry.wheelTraction = {
@@ -399,14 +389,6 @@ function SHTelemetry:captureWheelData(vehicle, telemetry)
 		for i, wheel in ipairs(spec_wheels.wheels) do
 			telemetry.wheelCount = telemetry.wheelCount + 1
 
-			-- Presión y desgaste (disponibles en FS25 con neumáticos opcionales)
-			if wheel.tirePressure ~= nil then
-				telemetry["wheel_" .. i .. "_pressure"] = wheel.tirePressure
-			end
-			if wheel.tireWear ~= nil then
-				telemetry["wheel_" .. i .. "_wear"] = wheel.tireWear
-			end
-
 			if i <= 4 then
 				local wt  = telemetry.wheelTraction[i]
 				local ph  = wheel.physics
@@ -425,9 +407,15 @@ function SHTelemetry:captureWheelData(vehicle, telemetry)
 				wt.slip = 0
 
 				-- ── Velocidad de rueda [m/s] ───────────────────────────────
+				-- MR: mrLastWheelSpeed. SDK: netInfo.xDriveSpeed (rad/s) * radio.
+				-- (physics.rotSpeed es un parámetro de dirección, no la velocidad de giro.)
 				local spd = 0
-				if ph ~= nil and ph.rotSpeed ~= nil and ph.radius ~= nil then
-					spd = ph.rotSpeed * ph.radius
+				if ph ~= nil then
+					if ph.mrLastWheelSpeed ~= nil then
+						spd = ph.mrLastWheelSpeed
+					elseif ph.netInfo ~= nil and ph.netInfo.xDriveSpeed ~= nil and ph.radius ~= nil then
+						spd = ph.netInfo.xDriveSpeed * ph.radius
+					end
 				end
 				wt.speedMs = math.abs(spd)
 

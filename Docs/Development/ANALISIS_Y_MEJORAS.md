@@ -1,18 +1,20 @@
 # Análisis del proyecto: fallos, duplicados y mejoras
 
-Fecha del análisis: 2026-10-20 · Rama `main` (commit `d2ee0a7`)
+Fecha del análisis: 2026-10-20 · Rama `main` (commit `d2ee0a7`). **Revisión 2026-10-22** sobre `fe04116`: ver §10 (hallazgos nuevos N1–N16).
 
 Alcance: mod Lua (`SHTelemetry/`), backend Node (`Dashboard/backend/`), frontend (`Dashboard/frontend/`),
 scripts Python (`Scripts/`), tests, `.bat` y estructura del repo.
 
-## Estado actual (actualizado 2026-10-20)
+## Estado actual (actualizado 2026-10-22)
 
-- **Corregidos B1–B11**, B12a y B12n, más la limpieza (§3, §4), la seguridad local (§5) y parte del rendimiento (§6).
-- Tests: backend 28/28, frontend 10/10, Python 23/23 (al analizar eran 23, 9 y 20). Cada corrección de datos lleva su test, salvo B2, B6 y B7 (Lua y endpoint sin cobertura automática).
+- **Corregidos B1–B11**, B12a y B12n, más la limpieza (§3, §4), la seguridad local (§5) y parte del rendimiento (§6). Re-verificado leyendo el código en `fe04116`: las correcciones siguen presentes (B1, B2, B4, B5, B6, B7, B8, B9, B10, B11).
+- Tests ejecutados el 2026-10-22: backend 28/28, frontend 15/15 (`node Tests/frontend_logic.test.js`, tarda ~8 s), Python 23/23. Cada corrección de datos lleva su test, salvo B2, B6 y B7 (Lua y endpoint sin cobertura automática).
 - **Verificado por el usuario** con el simulador: arranque, pestañas, indicador de grabación y reconexión. **Pendiente de verificar con FS25 real:** grabación durante el trabajo (contador a 1/s, parada al bajarse del tractor, análisis del perfil) y la reconexión del mod Lua.
-- Los cambios **no están commiteados** (ver `git status`).
-- Su `.env` local sigue con `UPDATE_FREQUENCY_MS=16.66`; cambiar a `33` para emitir a ~30 Hz.
-- Quedan abiertos: B12b–B12m (excepto B12a y B12n), D1–D12, §7 (mejoras funcionales) y los pendientes de §5 y §6.
+- Los cambios ya están commiteados (`git status` limpio en `fe04116`).
+- Su `.env` local sigue con `UPDATE_FREQUENCY_MS=16.66` (y variables que el código ya no lee: `BACKEND_PORT`, `LOG_*`, `NAMED_PIPE_TIMEOUT`…); cambiar a `33` para emitir a ~30 Hz.
+- **Aplicado el 2026-10-22 (sin commitear):** N5 (lista blanca: solo se graba trabajo en campo), V1, V2, V4, V5 y V8 (§11), con MR primero y SDK de respaldo (§12). Tests: backend 30/30, frontend 16/16, Python 23/23. **Los cambios del Lua no se han podido ejecutar ni comprobar sintácticamente aquí** (no hay intérprete de Lua): cargar el mod en FS25 y revisar `log.txt` antes de dar por bueno. Comprobar en juego: que un tractor con remolque o contrapeso ya no grabe (sin `GRABANDO`), que una sembradora/cultivador sí, que `speedMs` de las ruedas cambie con la velocidad, y que el patinaje del dashboard coincida con el de MR.
+- El test de frontend falló una vez con 16 tests y pasó en la siguiente ejecución sin cambios: posible test inestable (ver nota de temporizadores en §10).
+- Quedan abiertos: B12b–B12m (excepto B12a y B12n), D1–D12, §7 (mejoras funcionales), los pendientes de §5 y §6, y los hallazgos nuevos de §10.
 
 Leyenda: 🔴 alta (datos incorrectos / pérdida de datos) · 🟠 media · 🟡 baja · ✅ CORREGIDO = ya aplicado y probado. El texto de cada fallo describe el estado **antes** de corregirlo.
 
@@ -103,7 +105,7 @@ En [analyze_session.py](../../Scripts/analyze_session.py):
 | B12h | [ia-analysis.js:34](../../Dashboard/frontend/js/modules/ia-analysis.js#L34) | "~muestras" se estima como `size/120`, pero cada línea JSONL pesa ~350-450 bytes → el número mostrado es ~3× el real. Devolver `lines` real desde el servidor. |
 | B12i | [ia-analysis.js:41](../../Dashboard/frontend/js/modules/ia-analysis.js#L41) | `innerHTML` + `onclick` inline con nombres de archivo. Hoy los nombres están limitados por regex, pero conviene usar DOM API + `addEventListener`. |
 | B12j | [dashboard.js:567](../../Dashboard/frontend/js/dashboard.js#L567) | Los comentarios dicen "60 %" y "75 %" del rango pero el código usa 0.40 y 0.70. |
-| B12k | [analyze_session.py](../../Scripts/analyze_session.py) | `avg_slip`/`peak_slip` solo usan `wheelSlipRL` (ignora RR). `duration_min = n/60` asume exactamente 1 muestra/s. `wmean` trata `None` previo como 0 (sesga el promedio). |
+| B12k | [analyze_session.py](../../Scripts/analyze_session.py) | `avg_slip`/`peak_slip` solo usan `wheelSlipRL` (ignora RR). `duration_min = n/60` es correcto con 1 muestra/s, pero es tiempo *grabado*, no tiempo de sesión (las paradas con implemento subido no cuentan): rotularlo así. `wmean` trata `None` previo como 0 (sesga el promedio). Ver además N1 (peso del delta). |
 | B12l (parcial: timeout aplicado) | [server.js](../../Dashboard/backend/server.js) | `spawn('python')` sin alternativa `py`/`python3`; en Windows sin Python en PATH falla con mensaje poco claro. |
 | B12n (corregido) | [Scripts/test_analyze_session.py](../../Scripts/test_analyze_session.py) | Los tests de Python escriben en el `Data/campo_profiles.json` **real** (añaden entradas `tmp*.jsonl`). Usar un `profiles_path` temporal. |
 | B12m (parcial) | [SHTelemetry.lua](../../SHTelemetry/SHTelemetry.lua) | `pluginVersion` ya es 2.2; `modDesc.xml` sigue en `1.0.0.0`. |
@@ -199,7 +201,7 @@ Estado: fases 1 y 2 (excepto D4–D7) hechas; fase 3 casi completa; fase 4 en su
 | 5. Funcionalidad | §7.1, §7.2, §7.3 | alto |
 | 6. Calidad | §7.7, §7.8, D12 | medio |
 
-Siguiente paso recomendado: verificar la grabación con FS25 real, commitear por temas y seguir con D4–D7 (duplicados del frontend) y §7.1/§7.2 (campo automático y promedio al cerrar sesión).
+Siguiente paso recomendado: verificar la grabación con FS25 real, corregir N1 (perfil sesgado), N2 (frame perdido por NaN) y N5 (qué se graba) por afectar a los datos, y seguir con D4–D7 (duplicados del frontend) y §7.1/§7.2 (campo automático y promedio al cerrar sesión). N3 y N4 requieren FS25 real para confirmarse.
 
 ## 9. Preguntas abiertas
 
@@ -207,3 +209,138 @@ Siguiente paso recomendado: verificar la grabación con FS25 real, commitear por
 - ¿`Data/campo_profiles.json` debe versionarse o es solo local?
 - ~~¿Acceso desde otros equipos?~~ Decidido: solo local.
 - ¿Se mantiene compatibilidad sin MoreRealistic o el proyecto lo da por obligatorio?
+- ~~¿Se deben grabar los trabajos de tipo `TRANSPORT` y `UNKNOWN`?~~ Decidido: no, solo trabajo en campo (ver N5).
+
+---
+
+## 10. Hallazgos nuevos (revisión 2026-10-22)
+
+Leyenda extra: **[confirmado]** = visto en el código o reproducido con los tests; **[a verificar]** = deducido del código, hace falta FS25 real para confirmarlo.
+
+### Datos incorrectos o perdidos
+
+| ID | Sev. | Estado | Dónde | Problema y arreglo |
+| --- | --- | --- | --- | --- |
+| N1 | 🟠 | [confirmado] | [analyze_session.py:87-108](../../Scripts/analyze_session.py#L87) | Cuando un archivo ya analizado sigue creciendo, `n` pasa a ser solo el delta, pero `result['avg_*']` es la media de **todo el archivo**. `wmean` pondera esa media global con el peso del delta, así que el perfil se sesga hacia el archivo activo. **Arreglo:** guardar en el perfil, por archivo, `{n, medias}` y recalcular el perfil como media ponderada de archivos; así el análisis repetido es idempotente. Test a añadir: analizar a 100 y a 200 muestras debe dar lo mismo que analizar una vez a 200. |
+| N2 | 🟠 | [confirmado] | [SHTelemetry.lua:601-607](../../SHTelemetry/SHTelemetry.lua#L601) | `encode_number` hace `error()` con NaN/inf y el `pcall(encode…)` descarta **el frame entero** (solo imprime). Un único NaN congela el dashboard y se repite en cada tick (30 líneas/s en el log). **Arreglo:** codificar NaN/inf como `null` (o descartar solo ese campo) y registrar el nombre del campo una sola vez. |
+| N3 | 🟠 | [a verificar] | [Extensions.lua:399-411](../../SHTelemetry/SHTelemetry_Extensions.lua#L399) | La posición de la rueda se asume por índice (`wheels[1..4]` = FL, FR, RL, RR). En vehículos con ruedas gemelas, 6+ ruedas u otro orden, "trasera" puede ser una delantera. El logger usa `wt[3]`/`wt[4]` como traseras para el patinaje y `wt[1..4]` para la carga por eje. **Arreglo:** calcular la posición con la coordenada local del nodo de la rueda respecto a `rootNode` (signo de x y z) y agrupar por eje. |
+| N4 | 🟠 | [a verificar] | [SHTelemetry.lua:472-485](../../SHTelemetry/SHTelemetry.lua#L472) · [start.bat](../../start.bat) | La escritura al pipe es síncrona. En Windows, hacer clic en la consola `cmd /k npm start` (QuickEdit) **pausa** el proceso Node; si deja de leer, el buffer del pipe se llena y `write` puede bloquear el hilo principal de FS25. El payload es grande por `vehicleComponents` (§3). **Arreglo:** quitar `vehicleComponents` o enviarlo a menor frecuencia, desactivar QuickEdit al lanzar (o arrancar el backend minimizado) y documentarlo en `INSTALACION.md`. Prueba: pausar la consola 10 s con el juego en marcha. |
+| N5 ✅ | 🟠 | [a verificar] | [Extensions.lua:152-158](../../SHTelemetry/SHTelemetry_Extensions.lua#L152) · [telemetry.js:420](../../Dashboard/backend/src/services/telemetry.js#L420) | Un implemento sin `getIsLowered` (contrapesos) se marca `implementLowered = true`, y `_logSample` graba mientras `speed ≥ 0.3`. Un tractor solo con contrapeso (`workType UNKNOWN`) o con remolque (`TRANSPORT`) genera muestras que ensucian los promedios y la UI muestra GRABANDO. **Decidido (2026-10-22):** el transporte no interesa, solo se graba trabajo en campo. **Arreglo:** lista blanca en `_logSample` (`HARVESTER`, `SOWER`, `CULTIVATOR`, `PLOW`, `MOWER`, `BALER`, `SPRAYER`, `FERTILIZER`, `FIELDWORK`) y excluir `TRANSPORT` y `UNKNOWN`; la UI debe mostrar "EN ESPERA" en esos casos (usar el mismo `_isRecording`). La causa de fondo está en V1 (§11). |
+| N6 | 🟡 | [confirmado] | [dashboard.js:257-283](../../Dashboard/frontend/js/dashboard.js#L257) · [tachometer.html:223](../../Dashboard/frontend/sections/cards/tachometer.html#L223) · [bottom-strip.html:5](../../Dashboard/frontend/sections/bottom-strip.html#L5) | `updateStatusStrip` muestra `data.accelerator` (pedal) en los campos rotulados "Engine Load" y "Load". La carga real es `data.motorLoad`. **Arreglo:** decidir cuál se quiere ver y rotular en consecuencia. |
+| N7 | 🟡 | [confirmado] | [telemetry-ui.js:29](../../Dashboard/frontend/js/modules/telemetry-ui.js#L29) | `Math.abs(raw) * (Math.abs(raw) <= 1 ? 100 : 1)`: un `longSlip` de 1.2 se muestra como 1 % y exactamente 1.0 como 100 %. Es el duplicado D5. **Arreglo:** que el backend envíe `slipRearPct` (0–100, con tope) y borrar la heurística. |
+| N8 | 🟡 | [confirmado] | [telemetry.js:476-477](../../Dashboard/backend/src/services/telemetry.js#L476) | `wheelSlipRL/RR` del logger multiplica por 100 sin tope; con MR hay valores >1 en bloqueo y distorsionan `avg_slip`/`peak_slip`. Acotar a 0–100 (y ver §7.5 sobre el signo). |
+
+### Robustez del backend y seguridad
+
+| ID | Sev. | Dónde | Problema y arreglo |
+| --- | --- | --- | --- |
+| N9 | 🟡 | [server.js:196](../../Dashboard/backend/server.js#L196) | `GET /api/analyze` escribe `campo_profiles.json`. Cualquier página abierta en el navegador puede lanzarlo con una petición `no-cors` a `localhost:8080`. `POST`/`DELETE` con JSON no son vulnerables porque no hay CORS ni preflight válido. **Arreglo:** pasar a `POST` (ya apuntado en B3), comprobar `Origin`/`Host` esperados (frena también DNS rebinding) y separar "analizar" de "guardar perfil". |
+| N10 | 🟡 | [analyze_session.py:268-273](../../Scripts/analyze_session.py#L268) · [server.js:261-272](../../Dashboard/backend/server.js#L261) | Los errores de Python salen como `{"error": …}` con código de salida 0 y el servidor los devuelve con HTTP 200. La UI lo maneja (`d.error`), pero cualquier otro cliente lo ve como éxito. **Arreglo:** `sys.exit(1)` en errores, o que el servidor mapee `result.error` a 4xx/5xx. |
+| N11 | 🟡 | [telemetry.js:168-187](../../Dashboard/backend/src/services/telemetry.js#L168) | Al desconectarse el pipe, `currentData` conserva los últimos valores (solo se limpia `telemetrySource`) y el handler `error` no resetea `_massEma`. Ampliación de B12f. **Arreglo:** una función `_onDisconnect()` común para `end`, `error` y `close`. |
+| N12 | 🟡 | [telemetry.js:210](../../Dashboard/backend/src/services/telemetry.js#L210) | `connectionRetryTimeout` no se declara en el constructor, y `ENOENT`/`EADDRINUSE` no reintentan nunca. Declararlo y reintentar con espera. |
+| N13 | 🟡 | [server.js:121, 365](../../Dashboard/backend/server.js#L121) · [telemetry.js:37](../../Dashboard/backend/src/services/telemetry.js#L37) | `parseInt` en el servicio y en `LOG_EVERY`, `parseFloat` en el mensaje de arranque: con `16.66` se emite a 16 ms y se anuncia 16,66. `/api/config` devuelve cadena si viene de `.env` y número si es el valor por defecto, y el frontend no lo usa (ni `maxBufferSize`). Unificar en un `config.js` y borrar o usar `/api/config`. |
+| N14 | 🟡 | [stop_dashboard.bat](../../stop_dashboard.bat) · [start.bat](../../start.bat) | Matan cualquier proceso que escuche en el puerto 8080 (`taskkill /F`) sin comprobar que sea el backend. **Arreglo:** guardar el PID al arrancar, o comprobar que es `node.exe` con `server.js`. |
+
+### Frontend
+
+| ID | Sev. | Dónde | Problema y arreglo |
+| --- | --- | --- | --- |
+| N15 | 🟡 | [telemetry-client.js:40-47](../../Dashboard/frontend/js/telemetry-client.js#L40) | En `disconnect` se escribe "Sin servidor" y a continuación `updateConnectionBadge` lo pisa con "Sin telemetría FS25": no se distingue backend caído de FS25 apagado. Dos módulos escriben `#connection-status` y `.status-dot`. **Arreglo:** un único módulo de estado con tres estados (sin servidor / sin FS25 / en vivo). |
+| N16 | 🟡 | [dashboard.js:54](../../Dashboard/frontend/js/dashboard.js#L54) | `recordDyno` también guarda en `localStorage` las curvas de los vehículos simulados (`(Simulado)`), que gastan plazas de `MAX_VEHICLES`. Saltar si `telemetrySource === 'mock'`. |
+
+### Mejoras pequeñas detectadas
+
+- **Lua, spam en el log del juego:** `print` en cada tick ("getMotor() retornó nil", "Motor no disponible…", "Error en buildTelemetry") a 30 Hz. Limitar a una vez cada N segundos o al cambiar de estado.
+- **Lua, vehículos sin diésel:** `getVehicleFuelLevelAndCapacity` devuelve `0, 0` y `fuelPercentage` queda en 0: la UI lo pinta como depósito vacío. Enviar `hasFuel = false` y ocultar la tarjeta.
+- **Lua, código muerto:** el bloque `if false then … log(…)` ([Extensions.lua:142](../../SHTelemetry/SHTelemetry_Extensions.lua#L142)) y `targetRpm` ([SHTelemetry.lua:250-267](../../SHTelemetry/SHTelemetry.lua#L250)), que el backend no lee y que codifica umbrales fijos (1400/1700/1800 rpm) que no valen para todos los motores.
+- **UI, fuera del vehículo:** el backend limpia rpm y velocidad al recibir `isInVehicle=false`, pero nombre, combustible y desgaste quedan del último vehículo sin indicarlo. Mostrar "FUERA DEL VEHÍCULO" en el badge.
+- **Tests:** `node --test Tests/` (frontend) falla con `MODULE_NOT_FOUND`; solo funciona `node Tests/frontend_logic.test.js`. El archivo tarda ~8 s, probablemente por temporizadores reales (`mock.timers` o menos espera). Faltan tests de `server.js` (endpoints), del reinicio del pipe y de N1.
+- **`ui-updater.js`:** `showNotification` no se invoca desde ningún sitio, y `setTheme`/`toggleFullscreen` solo se usan desde atajos del propio archivo. Candidatos a retirar junto a B12j/§3.
+
+### Comprobado y correcto (no hace falta tocar)
+
+- Todos los IDs del DOM que usa el JS existen en el HTML.
+- `DELETE /api/session/file` y `GET /api/analyze?file=`: la validación por segmentos frena el path-traversal.
+- `_save_profile`: escritura atómica, `.bak` ante JSON corrupto y archivos del formato antiguo sin recontar.
+- `isInVehicle=false` limpia el estado antes de grabar (B1) y `isRecording` viene del backend (B8).
+
+### Orden sugerido para trabajar
+
+1. **Datos:** N1 → N2 → N5 → N3 (con FS25) → N8.
+2. **Estabilidad en juego:** N4 (probar la pausa de consola) y el spam de `print`.
+3. **Backend y seguridad:** N9 → N10 → N11 → N12 → N13 → N14.
+4. **Frontend:** N6 → N7 (junto a D5) → N15 → N16.
+
+---
+
+## 11. Verificación de los Lua contra el SDK de FS25 y MoreRealistic (2026-10-22)
+
+Fuentes comparadas: código del juego en `…\Farming Simulator 25\sdk\debugger\gameSource\dataS\scripts` y el mod de [MoreRealistic_FS25-main](../../MoreRealistic_FS25-main) (v0.26.10.15). Alcance: [SHTelemetry.lua](../../SHTelemetry/SHTelemetry.lua) y [SHTelemetry_Extensions.lua](../../SHTelemetry/SHTelemetry_Extensions.lua).
+
+**Resultado:** las llamadas principales son correctas (ver lista al final). Hay una causa de fondo para N5, un dato erróneo y varios accesos a campos que no existen en FS25.
+
+### Problemas
+
+| ID | Sev. | Dónde | Problema y arreglo |
+| --- | --- | --- | --- |
+| V1 ✅ | 🟠 | [Extensions.lua:152-158](../../SHTelemetry/SHTelemetry_Extensions.lua#L152) | Causa de N5. `Attachable:getIsLowered(defaultIsLowered)` ([Attachable.lua:2219](file:///C:/Program%20Files%20(x86)/Steam/steamapps/common/Farming%20Simulator%2025/sdk/debugger/gameSource/dataS/scripts/vehicles/specializations/Attachable.lua)) devuelve `jointDesc.moveDown` solo si el enganche permite bajar; si no, devuelve el argumento. El Lua pasa `true`, así que cualquier implemento sobre un enganche fijo (remolques, contrapesos) cuenta como "bajado". **Arreglo:** pasar `false` y, para trabajo en campo, apoyarse en `getIsWorkAreaActive(workArea)` (ver V4). |
+| V2 ✅ | 🟠 | [Extensions.lua:429-432](../../SHTelemetry/SHTelemetry_Extensions.lua#L429) | `wheel.physics.rotSpeed` es el parámetro de **dirección** (`rotSpeed` del XML, usado en `setSteeringValues`), no la velocidad de giro de la rueda. `speedMs = rotSpeed * radius` es una constante sin sentido. **Arreglo:** usar `wheel.physics.netInfo.xDriveSpeed` (rad/s, [WheelPhysics.lua:285](file:///C:/Program%20Files%20(x86)/Steam/steamapps/common/Farming%20Simulator%2025/sdk/debugger/gameSource/dataS/scripts/vehicles/wheels/WheelPhysics.lua)) multiplicado por `radius`, o retirar el campo si no se usa. |
+| V3 | 🟡 | [SHTelemetry.lua:363-368](../../SHTelemetry/SHTelemetry.lua#L363) | `wearableSpec.isBroken` no existe en `Wearable.lua`; el flag real es `vehicle.isBroken` ([Vehicle.lua:2745](file:///C:/Program%20Files%20(x86)/Steam/steamapps/common/Farming%20Simulator%2025/sdk/debugger/gameSource/dataS/scripts/vehicles/Vehicle.lua)). Hoy `isVehicleBroken` solo salta con daño ≥ 1. **Arreglo:** `vehicle.isBroken == true or damage >= 1`. |
+| V4 ✅ | 🟡 | [Extensions.lua:82-110, 195-209, 285-294](../../SHTelemetry/SHTelemetry_Extensions.lua#L82) | Nombres que no existen como especialización en FS25 (código inalcanzable): `spec_directSowingMachine`, `spec_fertilizer`, `spec_manureSpreader`, `spec_disc`, `spec_subsoiler`, `spec_rollerCultivator` (Disc y Subsoiler usan `spec_cultivator`; esparcidores y abonadoras usan `spec_sprayer`, por lo que `FERTILIZER` nunca se devuelve). Tampoco existen `spec_combine.isWorking`, `workArea.isActive` (la API es `vehicle:getIsWorkAreaActive(workArea)`) ni `spec_cylindered.currentLiters/capacity`. **Faltan** `spec_mulcher`, `spec_weeder`, `spec_roller`, `spec_stonePicker`, `spec_ridgeFormer`, `spec_fruitPreparer`, `spec_plowPacker`, `spec_fertilizingCultivator`, `spec_forageWagon`, `spec_pickup`, `spec_baleWrapper`: caen en `FIELDWORK` si tienen área de trabajo y en `UNKNOWN` si no. **Arreglo:** reescribir `detectWorkType` con los nombres reales, mapeando los que faltan; con la lista blanca de N5 los `UNKNOWN` dejan de grabarse. |
+| V5 ✅ | 🟡 | [Extensions.lua:402-408](../../SHTelemetry/SHTelemetry_Extensions.lua#L402) | `wheel.tirePressure` y `wheel.tireWear` no existen en las ruedas de FS25 ni en MR; los campos `wheel_N_pressure/wear` nunca se envían. Quitarlos o buscar el origen real. |
+| V6 | 🟡 | [SHTelemetry.lua:92-100](../../SHTelemetry/SHTelemetry.lua#L92) | `missionInfo.money/map/timeScale/playTime` y `environment.currentDay` no se pueden comprobar con el SDK (no incluye `Mission`/`Environment`; `currentHour` y `currentMinute` sí aparecen en `Lights.lua`). Si alguno es `nil`, `buildTelemetry` lanza error y se pierde el frame entero. Ninguno lo usa el backend. **Arreglo:** quitar esas líneas o leerlas dentro de un `pcall`. |
+| V7 | 🟡 | [SHTelemetry.lua:184-190](../../SHTelemetry/SHTelemetry.lua#L184) | `Vehicle:getOperatingTimeText()` ya existe ([Vehicle.lua:4547](file:///C:/Program%20Files%20(x86)/Steam/steamapps/common/Farming%20Simulator%2025/sdk/debugger/gameSource/dataS/scripts/vehicles/Vehicle.lua)) con el mismo formato; el Lua lo reimplementa. Sustituir o quitar (el backend no lo usa). |
+| V8 ✅ | 🟡 | [telemetry.js:534-545](../../Dashboard/backend/src/services/telemetry.js#L534) | MR ya calcula `spec_wheels.mrAvgDrivenWheelsSlip` (lo usa en [MR_WheelPhysics.lua:204](../../MoreRealistic_FS25-main/MoreRealistic/scripts/MR_WheelPhysics.lua#L204)). Se puede enviar tal cual desde el Lua y eliminar el cálculo duplicado del backend y del frontend (D5, N7), con el mismo criterio de "ruedas motrices" que usa MR en lugar de "ruedas 3 y 4". También resuelve N3 para el patinaje. |
+
+### Comprobado y correcto
+
+- `getGearInfoToDisplay()`: el orden de los 10 valores devueltos coincide con el Lua ([Motorized.lua:3192](file:///C:/Program%20Files%20(x86)/Steam/steamapps/common/Farming%20Simulator%2025/sdk/debugger/gameSource/dataS/scripts/vehicles/specializations/Motorized.lua)).
+- `getTotalMass(onlyGivenVehicle)`: `true` = solo el vehículo, `false` = con implementos (override en `AttacherJoints.lua:3917`); `implementMassT = total − vehículo` es correcto.
+- `getLastSpeed()` devuelve km/h (`lastSpeed * 3600`); `lastFuelUsage` está en L/h; el par está en kN·m (por eso `×1000` = Nm y `par × rotSpeed` = kW).
+- Existen y se usan bien: `getMotor`, `getIsMotorStarted`, `getReverserDirection` (Drivable), `getConsumerFillUnitIndex` (Motorized), `getFillUnitFillLevel/Capacity`, `movingDirection`, `operatingTime`, `getFullName`, `spec_wearable.damage/totalAmount`, `getDamageAmount`, `getWearTotalAmount`, `spec_motorized.motorTemperature.value`, `motorFan.enabled`, `actualLoadPercentage`, `differentials[].diffIndex1/2IsWheel`, `engine.getMinRpm/getMaxRpm/getLastRealMotorRpm/getMotorAppliedTorque/getMotorAvailableTorque`, `lastAcceleratorPedal`, `peakMotorPower`, `peakMotorTorque`, `motorRotSpeed`, `lastMotorRpm`.
+- Implementos: `spec_attacherJoints.attachedImplements[].object`, `spec_foldable.foldAnimTime`, `spec_combine.attachedCutters` (tabla hash) / `numAttachedCutters` / `lastValidInputFruitType`, `spec_cutter.isWorking`, `getFruitTypeByIndex`. Las sembradoras fijan `spec_sowingMachine.isWorking = getLastSpeed() > 0.5` ([FertilizingSowingMachine.lua:71](file:///C:/Program%20Files%20(x86)/Steam/steamapps/common/Farming%20Simulator%2025/sdk/debugger/gameSource/dataS/scripts/vehicles/specializations/FertilizingSowingMachine.lua)), es decir, por velocidad y no por trabajo real.
+- Ruedas: `physics.hasGroundContact`, `radius`, `driveMode`, `densityType`, `groundDepth` existen.
+- MoreRealistic: `mrLastLongSlip`, `mrLastLatSlip`, `mrLastTireLoadS`, `mrLastGroundType`, `mrLastRrFx`, `mrLastPressureFx`, `mrIsDriven` (en `wheel.physics`), `mrLastFuelUsageS` (en `spec_motorized`), `mrMinEcoRot` (rad/s, la conversión a rpm es correcta), `mrPowerBandMinRpm/MaxRpm`, `mrPeakPowerRpm`, `mrCvtRatioIncRate` (en el motor) y `mrIsMrVehicle` (en el vehículo).
+
+### Orden sugerido
+
+1. V1 + V4 + N5 juntos: detección de trabajo en campo y lista blanca de grabación (una sola corrección de datos, con test).
+2. V2, V3, V5, V6, V7: limpieza del Lua, sin riesgo.
+3. V8 con D5/N7: un solo cálculo de patinaje.
+
+---
+
+## 12. Criterio de fuentes de datos: MoreRealistic primero, SDK de respaldo (decidido 2026-10-22)
+
+**Regla:** para cada dato del Lua se lee primero el valor de MoreRealistic (MR) cuando `isMoreRealistic` y el campo existe; si no, se usa el equivalente del SDK de FS25. Esto ya se hace en motor, carga de neumático, patinaje, suelo y combustible; falta aplicarlo al resto. Cada dato debe enviar de qué fuente viene (`dataSource: "mr" | "sdk"`) para que el análisis no mezcle valores con distinto significado.
+
+### Dónde aplicar la regla en lo ya existente
+
+| Dato | Hoy | Fuente MR (verificada en `MoreRealistic/scripts`) | Acción |
+| --- | --- | --- | --- |
+| Velocidad de rueda | `physics.rotSpeed × radius`, que es un parámetro de dirección (V2) | `wheel.physics.mrLastWheelSpeed` / `mrLastWheelSpeedS` ([MR_WheelPhysics.lua:504](../../MoreRealistic_FS25-main/MoreRealistic/scripts/MR_WheelPhysics.lua#L504)) | Usar MR; respaldo SDK `netInfo.xDriveSpeed × radius`. |
+| Patinaje medio de ruedas motrices | Backend calcula con "ruedas 3 y 4" (V8) | `spec_wheels.mrAvgDrivenWheelsSlip` ([MR_WheelsUtil.lua:1050](../../MoreRealistic_FS25-main/MoreRealistic/scripts/MR_WheelsUtil.lua#L1050)) | Enviarlo desde el Lua; el backend y el frontend dejan de calcularlo. |
+| Ruedas motrices | `mrIsDriven` si existe, si no diferenciales | `physics.mrIsDriven` | Ya correcto. |
+| Transmisión CVT | `mrCvtRatioIncRate > 0` | `vehicle.mrTransmissionIsHydrostatic` y `mrTransmissionPowerRatio` ([MR_Vehicle.lua:90-91](../../MoreRealistic_FS25-main/MoreRealistic/scripts/MR_Vehicle.lua#L90)) | Contrastar los dos criterios con un CVT real y quedarse con el más fiable. |
+| RPM eco | `mrMinEcoRot × 30/π` | `motor.mrMinEcoRpm` (ya calculado, [MR_VehicleMotor.lua](../../MoreRealistic_FS25-main/MoreRealistic/scripts/MR_VehicleMotor.lua)) | Leer directamente, sin convertir. |
+| Carga del motor | Fórmula propia con `motorAppliedTorque`, con abs/max según marcha atrás | `spec_motorized.mrEngineIsBraking` indica freno motor | Usarlo en lugar de deducir por el signo del par (cuesta abajo = 0 %). |
+| Tipo de trabajo | `detectWorkType` por especialización (V4) | `vehicle.mrStoreCategory`, `mrIsHeaderTrailer`, `mrPowerConsumerToolCategory` en el implemento | Valorar la categoría de MR como criterio principal de tipo de herramienta y la especialización del SDK como respaldo. |
+| Implemento "trabajando" | Heurística de bajado + velocidad (V1) | `implement.mrLastForce`, `mrLastNeededPtoPower` (potencia/fuerza que realmente demanda) | Considerar "trabajando" cuando MR indica fuerza o potencia > umbral; respaldo `getIsWorkAreaActive`. |
+
+### Datos de MR que hoy no se envían y aportan al análisis
+
+| Dato | Campo MR | Para qué sirve |
+| --- | --- | --- |
+| Fuerza de tiro del implemento | `mrLastForce` ([MR_PowerConsumer.lua:70](../../MoreRealistic_FS25-main/MoreRealistic/scripts/MR_PowerConsumer.lua#L70)) | Medir el esfuerzo real del arado, cultivador o sembradora; mejor base que la carga del motor para recomendar velocidad. |
+| Potencia de toma de fuerza | `motor.mrLastPtoPower` (kW), `mrLastNeededPtoPower`, `mrPtoCurrentRpm` | Cargas de TdF (empacadoras, esparcidores, trituradoras) que no se ven en la tracción. |
+| Rendimiento de cosechadora | `mrCombineLastTonsPerHourAvg`, `mrCombineLitersPerSecondS2`, `mrCombineSpeedLimit` ([MR_Combine.lua](../../MoreRealistic_FS25-main/MoreRealistic/scripts/MR_Combine.lua)) | t/h reales y límite de velocidad por capacidad: lo principal para analizar cosecha. |
+| Frenado | `wheel.physics.mrLastBrakeForce`, `mrLastEngineBrakeForce` | Detectar frenadas y freno motor en cuestas. |
+| Fricción y suelo | `mrLastFrictionCoeff`, `mrLastGroundSubType` | Explicar el patinaje por tipo de suelo. |
+
+### Normas de implementación
+
+1. En el Lua, una función por dato: `local v = mrValue() ; if v == nil then v = sdkValue() end`, con `pcall` alrededor del acceso a MR (sus campos cambian entre versiones; el Lua ya cita "MR 0.26.03.25" y hoy es 0.26.10.15).
+2. Registrar al arrancar la versión de MR detectada y qué campos faltan, una sola vez (no a 30 Hz).
+3. Los campos nuevos de MR llegan al backend con prefijo `mr` y se guardan en el `.jsonl` solo si interesan al análisis (fuerza de tiro, potencia de TdF, t/h); añadir `schemaVersion` al muestreo (§7.6) antes de cambiar el formato.
+4. Tests: payload con MR y payload sin MR para cada dato nuevo; el segundo debe seguir produciendo valores del SDK.
+5. Pendiente de verificar con FS25: unidades de `mrLastForce` y `mrCombineLastTonsPerHourAvg` (se leen en el código de MR pero no se han contrastado en juego).
